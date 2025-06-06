@@ -292,6 +292,8 @@
       @apply text-sm font-semibold capitalize;
     }
   }
+
+
 }
 
 @utility dark-gradient {
