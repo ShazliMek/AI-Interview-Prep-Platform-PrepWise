@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.actions";
 import FormField from "./FormField";
+import { useEffect, useState } from "react";
 
 const authFormSchema = (type: FormType) => {
   return z.object({
@@ -30,6 +31,7 @@ const authFormSchema = (type: FormType) => {
 
 const AuthForm = ({ type }: { type: FormType }) => {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formSchema = authFormSchema(type);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -41,17 +43,24 @@ const AuthForm = ({ type }: { type: FormType }) => {
     },
   });
 
-const onSubmit = async (data: z.infer<typeof formSchema>) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
+      setIsSubmitting(true);
+      
       if (type === "sign-up") {
         const { name, email, password } = data;
 
+        // Create Firebase auth account
         const userCredential = await createUserWithEmailAndPassword(
           auth,
           email,
           password
-        );
+        ).catch(error => {
+          console.error("Firebase client auth error:", error);
+          throw new Error(`Registration failed: ${error.message || error.code}`);
+        });
 
+        // Save user data to Firestore
         const result = await signUp({
           uid: userCredential.user.uid,
           name: name!,
@@ -64,36 +73,70 @@ const onSubmit = async (data: z.infer<typeof formSchema>) => {
           return;
         }
 
-        toast.success("Account created successfully. Please sign in.");
-        console.log("Navigating to /sign-in after sign-up");
-        router.push("/sign-in");
-      } else {
-        const { email, password } = data;
-
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-
-        const idToken = await userCredential.user.getIdToken();
+        // Auto sign-in after registration
+        const idToken = await userCredential.user.getIdToken(true);
         if (!idToken) {
           toast.error("Sign in Failed. Please try again.");
           return;
         }
 
-        await signIn({
+        const signInResult = await signIn({
           email,
           idToken,
         });
+        
+        if (!signInResult || !signInResult.success) {
+          toast.success("Account created, but couldn't sign in automatically. Please sign in.");
+          console.log("Redirecting to sign-in page after sign-up");
+          router.push("/sign-in");
+          return;
+        }
+        
+        toast.success("Account created and signed in successfully!");
+        console.log("Redirecting to home page after successful signup");
+        // Use window.location.href for a full page refresh
+        window.location.href = "/";
+      } else {
+        const { email, password } = data;
 
+        // Sign in with Firebase auth
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        ).catch(error => {
+          console.error("Firebase client auth error:", error);
+          throw new Error(`Sign in failed: ${error.message || error.code}`);
+        });
+
+        // Get fresh ID token
+        const idToken = await userCredential.user.getIdToken(true);
+        if (!idToken) {
+          toast.error("Sign in Failed. Please try again.");
+          return;
+        }
+
+        // Set session cookie on server
+        const result = await signIn({
+          email,
+          idToken,
+        });
+        
+        if (!result || !result.success) {
+          toast.error(result?.message || "Sign in Failed. Please try again.");
+          return;
+        }
+        
         toast.success("Signed in successfully.");
-        console.log("Navigating to / after sign-in");
-        router.push("/");
+        console.log("Redirecting to home page after sign-in");
+        // Use window.location.href for a full page refresh
+        window.location.href = "/";
       }
-    } catch (error) {
-      console.log(error);
-      toast.error(`There was an error: ${error}`);
+    } catch (error: any) {
+      console.error("Authentication error:", error);
+      toast.error(`Authentication failed: ${error.message || "Please try again."}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -140,8 +183,10 @@ const onSubmit = async (data: z.infer<typeof formSchema>) => {
               type="password"
             />
 
-            <Button className="btn" type="submit">
-              {isSignIn ? "Sign In" : "Create an Account"}
+            <Button className="btn" type="submit" disabled={isSubmitting}>
+              {isSubmitting 
+                ? `${isSignIn ? "Signing In" : "Creating Account"}...` 
+                : isSignIn ? "Sign In" : "Create an Account"}
             </Button>
           </form>
         </Form>
