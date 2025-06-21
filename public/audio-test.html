@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Controls Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .audio-controls { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+        .progress-bar { width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Audio Controls Debug Test</h1>
+    
+    <div class="debug">
+        <h3>Test Audio (Built-in browser audio)</h3>
+        <audio controls id="testAudio">
+            <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwAAAAA" type="audio/wav">
+        </audio>
+        <p>This is a test audio file to verify basic audio functionality.</p>
+    </div>
+    
+    <div class="audio-controls">
+        <h3>Custom Audio Controls Test</h3>
+        <div>
+            <button id="playBtn">▶️ Play</button>
+            <button id="pauseBtn">⏸️ Pause</button>
+            <button id="stopBtn">⏹️ Stop</button>
+        </div>
+        <div>
+            <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0">
+        </div>
+        <div>
+            <span id="currentTime">0:00</span> / <span id="duration">0:00</span>
+        </div>
+        <div class="debug">
+            <strong>State:</strong> <span id="audioState">Stopped</span><br>
+            <strong>Duration:</strong> <span id="debugDuration">N/A</span><br>
+            <strong>Current Time:</strong> <span id="debugCurrentTime">N/A</span>
+        </div>
+    </div>
+    
+    <script>
+        const audio = new Audio();
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeSpan = document.getElementById('currentTime');
+        const durationSpan = document.getElementById('duration');
+        const audioState = document.getElementById('audioState');
+        const debugDuration = document.getElementById('debugDuration');
+        const debugCurrentTime = document.getElementById('debugCurrentTime');
+        
+        function formatTime(seconds) {
+            if (isNaN(seconds) || !isFinite(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function updateUI() {
+            const duration = audio.duration || 0;
+            const currentTime = audio.currentTime || 0;
+            
+            currentTimeSpan.textContent = formatTime(currentTime);
+            durationSpan.textContent = formatTime(duration);
+            debugDuration.textContent = duration;
+            debugCurrentTime.textContent = currentTime;
+            
+            if (duration > 0) {
+                progressBar.max = duration;
+                progressBar.value = currentTime;
+            }
+        }
+        
+        audio.addEventListener('loadedmetadata', () => {
+            console.log('Metadata loaded, duration:', audio.duration);
+            updateUI();
+        });
+        
+        audio.addEventListener('timeupdate', updateUI);
+        
+        audio.addEventListener('play', () => {
+            audioState.textContent = 'Playing';
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+        });
+        
+        audio.addEventListener('pause', () => {
+            audioState.textContent = 'Paused';
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+        });
+        
+        audio.addEventListener('ended', () => {
+            audioState.textContent = 'Ended';
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            progressBar.value = 0;
+        });
+        
+        playBtn.addEventListener('click', async () => {
+            if (!audio.src) {
+                // Use the same test audio data
+                audio.src = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjmP1/PNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwAAAAA";
+            }
+            try {
+                await audio.play();
+            } catch (error) {
+                console.error('Play error:', error);
+                alert('Play error: ' + error.message);
+            }
+        });
+        
+        pauseBtn.addEventListener('click', () => {
+            audio.pause();
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            audio.pause();
+            audio.currentTime = 0;
+        });
+        
+        progressBar.addEventListener('input', () => {
+            audio.currentTime = progressBar.value;
+        });
+        
+        // Initialize
+        pauseBtn.disabled = true;
+    </script>
+</body>
+</html>
