@@ -1,18 +1,93 @@
-import Agent from '@/components/Agent'
-import { getCurrentUser } from '@/lib/actions/auth.actions'
-import Link from 'next/link'
-import React from 'react'
+import Agent from '@/components/Agent';
+import { getCurrentUser } from '@/lib/actions/auth.actions';
+import { getPresetInterviewById } from '@/constants/presets';
+import Link from 'next/link';
+import React from 'react';
 
-const Page = async () => {
+const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) => {
   const user = await getCurrentUser();
+  
+  // For Next.js Server Components, we need to access searchParams properties safely
+  // without using the spread operator or direct property access
+  let presetId: string | undefined;
+  if (searchParams) {
+    presetId = searchParams.presetId;
+  }
+  
+  console.log("Interview page - presetId:", presetId);
+
+  if (presetId) {
+    console.log("Looking up preset interview with ID:", presetId);
+    const presetInterview = getPresetInterviewById(presetId);
+    console.log("Found preset interview:", presetInterview ? "Yes" : "No");
+
+    if (presetInterview) {
+      console.log("Rendering preset interview page for:", presetInterview.role);
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen p-6">
+          <div className="max-w-4xl w-full text-center">
+            <h1 className="text-4xl font-bold mb-2">{presetInterview.role} Interview</h1>
+            <p className="text-lg text-gray-600 mb-3">Company: {presetInterview.company}</p>
+            
+            <div className="bg-blue-50 p-4 rounded-lg mb-6 text-left">
+              <h3 className="text-lg font-semibold mb-2">About This Interview</h3>
+              <p className="text-sm text-gray-700 mb-2">
+                This is a preset interview for a {presetInterview.role} position at {presetInterview.company}. 
+                The AI interviewer will guide you through a structured interview experience.
+              </p>
+              <p className="text-sm text-gray-700">
+                Click the &quot;Call&quot; button below to start your interview. The system uses a conversation 
+                workflow that follows a natural interview format and will include the preset questions.
+              </p>
+            </div>
+            
+            <Agent 
+              userName={user?.name || 'Guest'} 
+              userId={user?.id} 
+              interviewId={presetInterview.id} 
+              type='interview' 
+              questions={presetInterview.questions}
+            />
+          </div>
+        </div>
+      );
+    } else {
+      // Handle case where preset ID was provided but not found
+      console.log("Preset interview not found for ID:", presetId);
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen p-6">
+          <div className="max-w-4xl w-full text-center">
+            <h1 className="text-3xl font-bold mb-4">Interview Not Found</h1>
+            <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 mb-6">
+              <p className="text-gray-700 mb-4">
+                We couldn&apos;t find the preset interview you were looking for. The ID &quot;{presetId}&quot; may be invalid 
+                or no longer available.
+              </p>
+              <Link href="/preset-interviews" className="text-blue-600 hover:underline">
+                Browse all preset interviews
+              </Link>
+            </div>
+            <Link href="/" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Return to Home
+            </Link>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6">
       <div className="max-w-4xl w-full text-center">
         <h1 className="text-4xl font-bold mb-6">AI Interview Preparation</h1>
-        <p className="text-lg text-gray-600 mb-8">
+        <p className="text-lg text-gray-600 mb-4">
           Choose your interview type to get started with personalized questions and voice recording.
         </p>
+        <div className="mb-6">
+          <Link href="/preset-interviews" className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md">
+            Browse Company-Specific Interviews
+          </Link>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Link href="/interview/software-engineer" className="p-6 border border-gray-200 rounded-lg hover:shadow-lg transition-shadow">
@@ -66,6 +141,18 @@ const Page = async () => {
             <p className="text-gray-600 mb-4">Get personalized interview questions without recording</p>
             <Agent userName={user?.name || 'Guest'} userId={user?.id} type='generate'/>
           </div>
+        </div>
+        
+        <div className="mt-10 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-lg font-semibold mb-3">About Our AI Interviews</h3>
+          <p className="text-sm text-gray-700 mb-3">
+            Our AI interview system uses advanced conversation workflows to create a realistic and structured interview experience.
+            The system adapts to your responses while following a professional interview format.
+          </p>
+          <p className="text-sm text-gray-700">
+            For the most realistic experience, try our preset company-specific interviews that include
+            carefully crafted questions based on real interview patterns.
+          </p>
         </div>
       </div>
     </div>

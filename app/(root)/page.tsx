@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image';
 import { dummyInterviews } from '@/constants';
 import InterviewCard from '@/components/InterviewCard';
+import { presetInterviews } from '@/constants/presets';
+import PresetInterviewCard from '@/components/PresetInterviewCard';
 
 const page = () => {
   return (
@@ -28,13 +30,18 @@ const page = () => {
     </section>
 
     <section className='flex flex-col gap-6 mt-8'>
-      <h2>Take an interiew</h2>
+        <div className="flex justify-between items-center">
+            <h2>Take an interview</h2>
+            <Button asChild variant="outline">
+                <Link href="/preset-interviews">View All Preset Interviews</Link>
+            </Button>
+        </div>
       <div className='interviews-section'>
-        {dummyInterviews.map((interview) => (<InterviewCard {...interview} key = {interview.id}/>))} 
+        {presetInterviews.slice(0, 3).map((interview) => (<PresetInterviewCard interview={interview} key = {interview.id}/>))} 
       </div>
     </section>
     </>
   )
 }
 
-export default page 
+export default page

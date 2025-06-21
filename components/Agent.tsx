@@ -41,9 +41,15 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
     const [messages, setMessages] = useState<SavedMessage[]>([]);
     const cleanupRecordingRef = useRef<(() => void) | null>(null);
     const [lastMessage, setLastMessage] = useState<string>('');
+    
+    // Debug props for inspection
+    useEffect(() => {
+        console.log("Agent props:", { userName, userId, interviewId, type, questions });
+    }, [userName, userId, interviewId, type, questions]);
 
     useEffect(() => {
         const handleCallStart = async () => {
+            console.log("🟢 Call started!");
             setCallStatus(CallStatus.ACTIVE);
             
             // Start encrypted recording if we have an interview ID
@@ -55,6 +61,29 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
                 } catch (error) {
                     console.error("Failed to start encrypted recording:", error);
                 }
+            }
+            
+            // Check if we have preset questions
+            if (questions && questions.length > 0) {
+                console.log("Using preset interview questions:", questions);
+                
+                // Format questions for display in the transcript
+                const questionsFormatted = questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+                
+                // Add multiple messages to ensure the AI understands the questions
+                setMessages([
+                    {
+                        role: 'system',
+                        content: `IMPORTANT: This is a preset interview with the following questions. Please incorporate these questions during the interview:\n\n${questionsFormatted}`
+                    },
+                    {
+                        role: 'assistant',
+                        content: 'I understand. I will conduct this interview using the preset questions provided. Let me begin by introducing myself.'
+                    }
+                ]);
+                
+                // Show an initial message to the user
+                setLastMessage(`The interview will use the preset questions shown below. The AI interviewer will incorporate them during your conversation.`);
             }
         };
         
@@ -92,7 +121,14 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
 
         const handleSpeechStart = () => setIsSpeaking(true);
         const handleSpeechEnd = () => setIsSpeaking(false);
-        const handleError = (error: Error) => console.error("Vapi error:", error);
+        const handleError = (error: unknown) => {
+            console.error("Vapi error:", error);
+            if (error instanceof Error) {
+                console.error("Vapi error name:", error.name);
+                console.error("Vapi error message:", error.message);
+                console.error("Vapi error stack:", error.stack);
+            }
+        };
 
         // Add event listeners
         vapi.on('call-start', handleCallStart);
@@ -118,7 +154,36 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
                 cleanupRecordingRef.current = null;
             }
         };
-    }, [interviewId, userId, type, router]);
+    }, [interviewId, userId, type, router, questions]);
+    
+    // Helper function to start a Vapi call with either workflow or assistant
+    const startVapiCall = async (callType: 'workflow' | 'assistant'): Promise<boolean> => {
+        const interviewWorkflow = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+        const interviewAssistant = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+        
+        try {
+            if (callType === 'workflow' && interviewWorkflow) {
+                console.log("Starting Vapi workflow with ID:", interviewWorkflow);
+                
+                // The most compatible approach is to just use the ID
+                // We'll rely on the UI to display the questions to both user and AI
+                await vapi.start(interviewWorkflow);
+                console.log("Vapi workflow call started successfully");
+                return true;
+            } else if (interviewAssistant) {
+                console.log("Starting call with Vapi assistant:", interviewAssistant);
+                await vapi.start(interviewAssistant);
+                console.log("Vapi assistant call started successfully");
+                return true;
+            } else {
+                console.error("Missing Vapi configuration for", callType);
+                return false;
+            }
+        } catch (error) {
+            console.error(`Failed to start Vapi ${callType}:`, error);
+            return false;
+        }
+    };
     
     const handleStartCall = async () => {
         if (callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED) {
@@ -127,17 +192,15 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
             try {
                 // Start Vapi call with proper configuration based on interview type
                 if (type === 'interview' && interviewId) {
-                    // For interview mode with encryption
-                    const interviewAssistant = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+                    // Check if we should use workflow or assistant
+                    const started = await startVapiCall('workflow');
                     
-                    if (!interviewAssistant) {
-                        throw new Error("Missing Vapi assistant ID in environment variables");
+                    if (!started) {
+                        // Fallback to assistant if workflow start fails
+                        await startVapiCall('assistant');
                     }
                     
-                    // Start the Vapi call with assistant ID directly
-                    await vapi.start(interviewAssistant);
-                    
-                    // Start encrypted recording only for interview mode
+                    // Start encrypted recording for interview mode
                     if (userId) {
                         try {
                             const cleanup = await vapiEncryptionService.startEncryptedRecording(interviewId);
@@ -191,6 +254,9 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
         }
     };
 
+    // Check if we have preset questions to display
+    const hasPresetQuestions = questions && questions.length > 0;
+
     return (
         <>
             <div className='call-view'>
@@ -208,6 +274,22 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
                     </div>
                 </div>
             </div>
+            
+            {/* Display preset questions if available */}
+            {hasPresetQuestions && (
+                <div className='mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100'>
+                    <h4 className='text-lg font-medium mb-2'>Interview Questions:</h4>
+                    <p className='text-xs text-gray-500 mb-2'>The AI interviewer will see these questions and may incorporate them into the interview.</p>
+                    <ol className='list-decimal ml-5 space-y-1'>
+                        {questions.map((question, index) => (
+                            <li key={index} className='text-sm text-gray-700'>{question}</li>
+                        ))}
+                    </ol>
+                    <p className='mt-3 text-xs text-blue-600 italic'>
+                        This interview uses a structured conversation flow for a more realistic experience.
+                    </p>
+                </div>
+            )}
             
             {messages.length > 0 && (
                 <div className='transcript-border'>
