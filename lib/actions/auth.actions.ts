@@ -16,7 +16,18 @@ export async function setSessionCookie(idToken: string) {
   try {
     const cookieStore = await cookies();
 
-    console.log("Creating session cookie from idToken");
+    console.log("Creating session cookie from idToken (first 10 chars):", idToken.substring(0, 10) + "...");
+    
+    // Verify the ID token first
+    try {
+      const decodedToken = await auth.verifyIdToken(idToken);
+      console.log("ID token verified. User UID:", decodedToken.uid);
+      console.log("ID token audience:", decodedToken.aud);
+      console.log("ID token issuer:", decodedToken.iss);
+    } catch (verifyError) {
+      console.error("Error verifying ID token:", verifyError);
+      return false;
+    }
     
     // Create session cookie
     const sessionCookie = await auth.createSessionCookie(idToken, {
@@ -139,6 +150,11 @@ export async function signIn(params: SignInParams) {
       };
     }
 
+    // Clear any existing session cookies first
+    const cookieStore = await cookies();
+    cookieStore.delete("session");
+    console.log("Cleared existing session cookies");
+
     console.log("Setting session cookie for user:", userRecord.uid);
     const cookieSet = await setSessionCookie(idToken);
     
@@ -219,6 +235,27 @@ export async function getCurrentUser(): Promise<User | null> {
 
   try {
     console.log("[getCurrentUser] Verifying session cookie...");
+    // Get project ID safely
+    let projectId = "unknown";
+    try {
+      projectId = (auth as any).app.options?.projectId || "unknown";
+    } catch (e) {
+      console.log("[getCurrentUser] Could not access project ID:", e);
+    }
+    console.log("[getCurrentUser] Auth project ID:", projectId);
+    
+    try {
+      // First try to decode the session cookie without verification to see what's in it
+      const parts = sessionCookie.split('.');
+      if (parts.length === 3) {
+        const decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+        console.log("[getCurrentUser] Session cookie audience:", decoded.aud);
+        console.log("[getCurrentUser] Session cookie issuer:", decoded.iss);
+      }
+    } catch (decodeError) {
+      console.log("[getCurrentUser] Could not decode session cookie:", decodeError);
+    }
+    
     const decodedClaims = await auth.verifySessionCookie(sessionCookie, true); // true checks for revocation
     console.log("[getCurrentUser] Session cookie verified. UID:", decodedClaims.uid);
 
@@ -238,9 +275,11 @@ export async function getCurrentUser(): Promise<User | null> {
       ...userRecord.data(),
       id: userRecord.id,
     } as User;
-  } catch (error: any) {
-    console.error("[getCurrentUser] Error verifying session cookie or fetching user:", error.message);
-    console.error("[getCurrentUser] Error code:", error.code); // Log specific error code if available
+  } catch (error) {
+    console.error("[getCurrentUser] Error verifying session cookie or fetching user:", error instanceof Error ? error.message : String(error));
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      console.error("[getCurrentUser] Error code:", (error as {code: string}).code);
+    }
     // Invalid or expired session
     return null;
   }

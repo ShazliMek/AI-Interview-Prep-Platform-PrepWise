@@ -100,6 +100,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         const { email, password } = data;
 
         // Sign in with Firebase auth
+        console.log("Attempting to sign in with Firebase client auth. Project ID:", auth.app.options.projectId);
         const userCredential = await signInWithEmailAndPassword(
           auth,
           email,
@@ -109,12 +110,15 @@ const AuthForm = ({ type }: { type: FormType }) => {
           throw new Error(`Sign in failed: ${error.message || error.code}`);
         });
 
-        // Get fresh ID token
+        console.log("Firebase auth successful, getting ID token. User UID:", userCredential.user.uid);
+        // Get fresh ID token with force refresh to ensure it's current
         const idToken = await userCredential.user.getIdToken(true);
         if (!idToken) {
           toast.error("Sign in Failed. Please try again.");
           return;
         }
+        
+        console.log("ID token obtained successfully (first 10 chars):", idToken.substring(0, 10) + "...");
 
         // Set session cookie on server
         const result = await signIn({

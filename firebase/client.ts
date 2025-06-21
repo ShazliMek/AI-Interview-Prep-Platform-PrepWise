@@ -8,13 +8,13 @@ import { getAuth } from 'firebase/auth';
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDHpwUvyBEV8kLGGtUvhD-EpCjigAgdS60",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "prepwise-79abc.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "prepwise-79abc",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "prepwise-79abc.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "1029819468308",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:1029819468308:web:9a2fff61b9b9bbda097501",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-X97RCNZ4X1"
+  apiKey: "AIzaSyAaBIEu_3quQ6fj4ow7v7s3fLS9GcjDz28",
+  authDomain: "ai-interview-prep-36e64.firebaseapp.com",
+  projectId: "ai-interview-prep-36e64",
+  storageBucket: "ai-interview-prep-36e64.firebasestorage.app",
+  messagingSenderId: "524351085781",
+  appId: "1:524351085781:web:4ea5dba372ea96f984d65c",
+  measurementId: "G-70JGSDKDQ2"
 };
 
 // Initialize Firebase

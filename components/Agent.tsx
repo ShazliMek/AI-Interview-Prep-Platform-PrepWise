@@ -1,25 +1,67 @@
-import React from 'react'
-import Image from 'next/image'
-import { cn } from '@/lib/utils';
+"use client";
+
+import Image from "next/image";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import { cn } from "@/lib/utils";
+import { vapi } from "@/lib/vapi.sdk";
+import { interviewer } from "@/constants";
+import { createFeedback } from "@/lib/actions/general.action";
+
 
 enum CallStatus{
-    INACTIVE = 'INACTIVE',
+    INACTIVE = 'INACTIVE',  
     CONNECTING = 'CONNECTING',
     ACTIVE = 'ACTIVE',
-    FINSIHED = 'FINISHED',
+    FINISHED = 'FINISHED',
+}
+interface SavedMessage {
+    role: 'user' | 'system' | 'assistant';
+    content: string;
 }
 
-const Agent = ({userName}: AgentProps) => {
-    const callStatus = CallStatus.FINSIHED; // This would typically be a state or prop to indicate the call status
-    const isSpeaking = true; // This would typically be a state or prop to indicate if the agent is speaking
+const Agent = ({userName, userId, type}: AgentProps) => {
 
-    const messages = [
-        'Whats your name?',
-        'What is your experience with React?',
-        'How do you handle state management in your applications?',
-    ];
+    const router = useRouter();
+    const [isSpeaking, setIsSpeaking] = React.useState(false);
+    const [isSpeaking, setIsSpeaking] = useState<CallStatus>(CallStatus.INACTIVE);
+    const [messages, setMessages] = useState<SavedMessage[]>([]);
 
-    const lastMessage = messages[messages.length - 1];
+    useEffect(() => {
+        const oncallStart = () => setCallStatus(CallStatus.ACTIVE);
+        const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
+        const onMessage = (message: Message) => {
+            if(message.type === 'transcript' && message.transcriptType === 'final') {
+                const newMessage: {role: message.role, content: message.transcript}
+
+                setMessages((prev) => [...prev, newMessage]);
+            }
+        }
+
+        const onSpeechStart = () => setIsSpeaking(true);
+        const onSpeechEnd = () => setIsSpeaking(false);
+
+        const onError = (error: Error) => console.log("Error:", error);
+
+        vapi.on('call-start', oncallStart);
+        vapi.on('call-end', onCallEnd);
+        vapi.on('message', onMessage);
+        vapi.on('speech-start', onSpeechStart);
+        vapi.on('speech-end', onSpeechEnd);
+        vapi.on('error', onError);
+
+        return () => {
+            vapi.off('call-start', oncallStart);
+            vapi.off('call-end', onCallEnd);
+            vapi.off('message', onMessage);
+            vapi.off('speech-start', onSpeechStart);
+            vapi.off('speech-end', onSpeechEnd);
+            vapi.off('error', onError);
+        }
+    } , [])
+
+    
   return (
     <>
     <div className='call-view'>

@@ -1,49 +1,35 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
 import admin from "firebase-admin";
+import fs from 'fs';
+import path from 'path';
 
-// At the top of your file
-import * as dotenv from 'dotenv';
-// Load from .env.local specifically for this file
-dotenv.config({ path: '.env.local' });
-
-// Option 1: From environment variable (recommended for production)
-const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-// Option 2: Direct path (ensure this file is secure and not publicly accessible)
-// IMPORTANT: Replace with the CORRECT service account JSON file for your client-side Firebase project.
-const directServiceAccountPath = "../prepwise-79abc-firebase-adminsdk-fbsvc-8b0ed1970d.json"; // CHECK THIS FILENAME
+// Service account file path - using ai-interview-prep-36e64 project
+const serviceAccountPath = path.join(process.cwd(), "ai-interview-prep-36e64-firebase-adminsdk-fbsvc-36a228d2db.json");
 
 let app: admin.app.App;
 
 if (!admin.apps.length) {
   try {
-    let credential;
-    if (serviceAccountPath) {
-      console.log("[Firebase Admin] Initializing with GOOGLE_APPLICATION_CREDENTIALS:", serviceAccountPath);
-      credential = admin.credential.cert(serviceAccountPath);
-    } else {
-      console.log(`[Firebase Admin] GOOGLE_APPLICATION_CREDENTIALS not set. Attempting to load: ${directServiceAccountPath}`);
-      const serviceAccountJson = require(directServiceAccountPath);
-      credential = admin.credential.cert(serviceAccountJson);
-    }
-    app = admin.initializeApp({ credential });
-    console.log("[Firebase Admin] SDK initialized. Project ID:", app.options.projectId);
+    console.log(`[Firebase Admin] Loading service account from: ${serviceAccountPath}`);
+    
+    // Read and parse the service account file
+    const serviceAccountContent = fs.readFileSync(serviceAccountPath, 'utf8');
+    const serviceAccount = JSON.parse(serviceAccountContent);
+    
+    // Initialize the app with the service account
+    app = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    
+    console.log(`[Firebase Admin] SDK initialized successfully. Project ID: ${serviceAccount.project_id}`);
   } catch (error) {
     console.error("[Firebase Admin] SDK initialization failed:", error);
-    // Throw error or handle as per application needs, auth and db will be undefined.
-    // For now, we'll let auth and db be potentially null and let runtime errors occur if not initialized.
+    throw new Error("Failed to initialize Firebase Admin SDK. Check the service account file path and contents.");
   }
 } else {
   app = admin.app();
-  console.log("[Firebase Admin] Using existing app. Project ID:", app.options.projectId);
+  console.log("[Firebase Admin] Using existing app instance.");
 }
 
-// Ensure app is defined before accessing auth() or firestore()
-export const auth = app! ? admin.auth(app) : null;
-export const db = app! ? admin.firestore(app) : null;
-
-if (!auth || !db) {
-  console.error("[Firebase Admin] Auth or DB is not initialized. This will cause errors.");
-}
+// Export auth and firestore
+export const auth = admin.auth(app);
+export const db = admin.firestore(app);
