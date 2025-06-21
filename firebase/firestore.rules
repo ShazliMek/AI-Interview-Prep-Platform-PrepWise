@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User can read and update their own data
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; // Prevent user deletion (admin only)
+    }
+    
+    // Voice recordings
+    match /voice_recordings/{recordingId} {
+      allow read: if request.auth != null && 
+                   request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+                     request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && 
+                     request.auth.uid == resource.data.userId;
+      allow update: if false; // Voice recordings are immutable
+    }
+    
+    // Voice analyses
+    match /voice_analyses/{analysisId} {
+      allow read: if request.auth != null && 
+                   request.auth.uid == resource.data.userId;
+      allow write: if false; // Only server can write analyses
+    }
+    
+    // Encryption keys - highly restricted
+    match /encryption_keys/{keyId} {
+      allow read: if false; // Only server can read keys
+      allow write: if false; // Only server can write keys
+    }
+    
+    // User privacy settings
+    match /user_privacy_settings/{settingsId} {
+      allow read: if request.auth != null && 
+                   request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && 
+                     request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+                     request.auth.uid == request.resource.data.userId;
+      allow delete: if false; // Privacy settings should not be deleted
+    }
+  }
+}

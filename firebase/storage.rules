@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Voice recordings - strict rules
+    match /voice-recordings/{userId}/{interviewId}/{recordingId} {
+      // Only allow authorized read access to user's own recordings
+      allow read: if request.auth != null && 
+                   request.auth.uid == userId;
+      
+      // Only allow uploads from authenticated users for their own folder
+      allow create: if request.auth != null && 
+                     request.auth.uid == userId && 
+                     request.resource.size < 20 * 1024 * 1024 && // Max 20MB
+                     request.resource.contentType.matches('audio/.*') || 
+                     request.resource.contentType == 'application/octet-stream';
+      
+      // No updates allowed - voice recordings are immutable
+      allow update: if false;
+      
+      // Allow users to delete their own recordings
+      allow delete: if request.auth != null && 
+                     request.auth.uid == userId;
+    }
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
