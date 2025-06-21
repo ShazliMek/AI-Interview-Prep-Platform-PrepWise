@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Service account file path - using ai-interview-prep-36e64 project
-const serviceAccountPath = path.join(process.cwd(), "ai-interview-prep-36e64-firebase-adminsdk-fbsvc-3830513a67.json");
+const serviceAccountPath = path.join(process.cwd(), "ai-interview-prep-36e64-firebase-adminsdk-fbsvc-cf50acf351.json");
 
 let app: admin.app.App;
 
