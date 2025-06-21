@@ -69,21 +69,33 @@ export const vapiEncryptionService = {
             mimeType: 'audio/webm'
           };
           
-          // Store encrypted recording via API
+          // Store encrypted recording via API (try MongoDB first, fallback to Firebase)
           const formData = new FormData();
           formData.append('audio', audioBlob);
           formData.append('interviewId', interviewId);
           formData.append('metadata', JSON.stringify(metadata));
           
-          const response = await fetch('/api/user/recordings', {
+          // Try MongoDB endpoint first
+          let response = await fetch('/api/user/recordings-mongodb', {
             method: 'POST',
             body: formData
           });
           
+          if (!response.ok) {
+            console.log('MongoDB storage failed, trying Firebase fallback...');
+            // Fallback to Firebase endpoint
+            response = await fetch('/api/user/recordings', {
+              method: 'POST',
+              body: formData
+            });
+          }
+          
           if (response.ok) {
-            console.log("Interview recording encrypted and stored successfully");
+            const result = await response.json();
+            console.log("Interview recording encrypted and stored successfully:", result);
           } else {
-            console.error("Failed to store recording:", await response.text());
+            const errorText = await response.text();
+            console.error("Failed to store recording:", errorText);
           }
         } catch (error) {
           console.error("Failed to encrypt and store interview recording:", error);
@@ -130,39 +142,70 @@ export const vapiEncryptionService = {
    */
   async playEncryptedRecording(recordingId: string): Promise<() => void> {
     try {
-      // Get and decrypt the recording via API
-      const response = await fetch(`/api/user/recordings/${recordingId}`);
+      console.log(`[Vapi Encryption Service] Playing recording: ${recordingId}`);
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch recording: ${response.statusText}`);
+      // Check authentication first
+      const authResponse = await fetch('/api/user/current');
+      const authData = await authResponse.json();
+      
+      if (!authData.success) {
+        throw new Error('Authentication required. Please sign in to play recordings.');
       }
       
-      const recordingData = await response.json();
+      // Try MongoDB endpoint first, fallback to Firebase
+      let response = await fetch(`/api/user/recordings-mongodb/${recordingId}`);
       
-      // Convert array back to buffer
-      const buffer = new Uint8Array(recordingData.audioData);
+      if (!response.ok) {
+        console.log('MongoDB playback failed, trying Firebase fallback...');
+        response = await fetch(`/api/user/recordings/${recordingId}`);
+      }
       
-      // Convert buffer to blob
-      const blob = new Blob([buffer], { type: 'audio/webm' });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication required. Please sign in to play recordings.');
+        } else if (response.status === 404) {
+          throw new Error('Recording not found. It may have been deleted or expired.');
+        } else if (response.status === 403) {
+          throw new Error('Access denied. You can only play your own recordings.');
+        } else {
+          throw new Error(`Failed to fetch recording: ${response.status} ${response.statusText}`);
+        }
+      }
+      
+      // Get the audio data as blob
+      const audioBlob = await response.blob();
+      console.log(`[Vapi Encryption Service] Retrieved audio blob: ${audioBlob.size} bytes`);
+      
+      if (audioBlob.size === 0) {
+        throw new Error('Recording is empty or corrupted.');
+      }
       
       // Create object URL for audio playback
-      const audioUrl = URL.createObjectURL(blob);
+      const audioUrl = URL.createObjectURL(audioBlob);
       
       // Create audio element
       const audioElement = new Audio(audioUrl);
       
+      // Add error handling for audio playback
+      audioElement.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        URL.revokeObjectURL(audioUrl);
+      });
+      
       // Start playback
-      audioElement.play();
+      await audioElement.play();
+      console.log(`[Vapi Encryption Service] Started playback for recording: ${recordingId}`);
       
       // Return cleanup function
       return () => {
         audioElement.pause();
-        audioElement.src = '';
+        audioElement.currentTime = 0;
         URL.revokeObjectURL(audioUrl);
+        console.log(`[Vapi Encryption Service] Stopped playback for recording: ${recordingId}`);
       };
     } catch (error) {
       console.error("Error playing encrypted recording:", error);
-      return () => {}; // Return empty cleanup function
+      throw error;
     }
   }
 };
