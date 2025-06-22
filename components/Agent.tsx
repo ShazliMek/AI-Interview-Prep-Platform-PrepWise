@@ -39,7 +39,7 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
     const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [messages, setMessages] = useState<SavedMessage[]>([]);
-    const cleanupRecordingRef = useRef<(() => void) | null>(null);
+    const cleanupRecordingRef = useRef<(() => Promise<Blob | null>) | null>(null);
     const [lastMessage, setLastMessage] = useState<string>('');
     
 
@@ -254,77 +254,77 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
         const handleCallEnd = async () => {
             console.log(`[Call Flow] ❌ Call ended event received at: ${Date.now()} (${new Date().toISOString()})`);
             setCallStatus(CallStatus.FINISHED);
-            setErrorMessage(''); // Clear any previous errors
-            
-            // Stop the timer and get final duration
-            console.log(`[Timer] Call ended, stopping timer...`);
-            console.log(`[Timer] Current recordingDuration state: ${recordingDuration}s`);
-            console.log(`[Timer] Start time ref: ${startTimeRef.current}`);
-            console.log(`[Timer] Last known duration ref: ${lastKnownDurationRef.current}s`);
-            
+            setErrorMessage('');
+
             const finalDuration = stopTimer();
             const integerDuration = Math.floor(finalDuration);
             console.log(`[Recording Timer] ⏱️ Final calculated duration: ${finalDuration}s (will save as ${integerDuration}s)`);
-            
-            // Warn if duration seems suspiciously short
-            if (finalDuration < 5) {
-                console.warn(`[Recording Timer] ⚠️ Warning: Very short call duration (${finalDuration}s). This might indicate a connection issue or immediate call termination.`);
-            }
-            // Stop encrypted recording
-            if (cleanupRecordingRef.current) {
-                cleanupRecordingRef.current();
-                cleanupRecordingRef.current = null;
-                console.log("Encrypted recording stopped");
-            }
-            
-            // If this is an interview, save duration and verify before redirecting
-            if (type === 'interview' && interviewId) {
+
+            if (type === 'interview' && interviewId && userId) {
+                const redirectUrl = `/my-interviews?newInterviewId=${interviewId}&duration=${integerDuration}`;
                 setIsProcessing(true);
                 try {
-                    // Step 1: Save the recording duration to MongoDB
-                    console.log(`[Recording Timer] 💾 Saving duration: ${integerDuration}s to MongoDB...`);
-                    await saveRecordingDuration(finalDuration);
-                    
-                    // Step 2: Wait a moment for the database to update
-                    console.log(`[Recording Timer] ⏳ Waiting for database update...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    // Step 3: Verify the duration was saved correctly
-                    console.log(`[Recording Timer] 🔍 Verifying rec_length was saved correctly...`);
-                    const verificationSuccess = await verifyRecordingDuration(integerDuration);
-                    
-                    if (verificationSuccess) {
-                        // Step 4: Only redirect if verification succeeds
-                        console.log(`[Recording Timer] ✅ Verification successful! Redirecting to my-interviews...`);
-                        setIsProcessing(false);
-                        setTimeout(() => {
-                            router.push('/my-interviews');
-                        }, 1000);
+                    // Step 1: Stop the recording and get the audio blob
+                    let audioBlob: Blob | null = null;
+                    if (cleanupRecordingRef.current) {
+                        console.log("[Audio Processing] Stopping encrypted recording and retrieving audio blob...");
+                        audioBlob = await cleanupRecordingRef.current();
+                        cleanupRecordingRef.current = null;
+                    }
+
+                    if (audioBlob) {
+                        console.log(`[Audio Processing] Retrieved audio blob: ${audioBlob.size} bytes`);
+                        
+                        // Step 2: Save the audio recording to the database
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob);
+                        formData.append('interviewId', interviewId);
+                        formData.append('metadata', JSON.stringify({ duration: 0, fileSize: audioBlob.size, mimeType: 'audio/webm' }));
+
+                        console.log(`[Audio Processing] Uploading recording for interview: ${interviewId}`);
+                        const response = await fetch('/api/user/recordings-mongodb', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`Failed to save recording to the database. Status: ${response.status}, Message: ${errorText}`);
+                        }
+                        const result = await response.json();
+                        console.log(`[Audio Processing] ✅ Recording saved successfully:`, result);
+
+                        // Step 3: Now that the recording is saved, update its duration
+                        console.log(`[Recording Timer] 💾 Saving duration: ${integerDuration}s to MongoDB...`);
+                        await saveRecordingDuration(integerDuration);
+
+                        // Step 4: Verify the duration was saved correctly
+                        console.log(`[Recording Timer] 🔍 Verifying rec_length was saved correctly...`);
+                        const verificationSuccess = await verifyRecordingDuration(integerDuration);
+
+                        if (verificationSuccess) {
+                            console.log(`[Recording Timer] ✅ Verification successful! Redirecting to my-interviews...`);
+                            window.location.href = redirectUrl;
+                        } else {
+                            console.error(`[Recording Timer] ❌ Verification failed! rec_length may not have been saved correctly.`);
+                            setErrorMessage('Warning: Recording duration may not have been saved correctly. Redirecting anyway...');
+                            setTimeout(() => { window.location.href = redirectUrl; }, 3000);
+                        }
                     } else {
-                        // Step 5: Handle verification failure
-                        console.error(`[Recording Timer] ❌ Verification failed! rec_length may not have been saved correctly.`);
-                        console.error(`[Recording Timer] 🚨 Manual intervention may be required for interview: ${interviewId}`);
-                        
-                        setErrorMessage('Warning: Recording duration may not have been saved correctly. Redirecting anyway...');
-                        setIsProcessing(false);
-                        
-                        // Still redirect but with a warning
-                        setTimeout(() => {
-                            console.log(`[Recording Timer] ⚠️ Redirecting despite verification failure...`);
-                            router.push('/my-interviews');
-                        }, 3000);
+                        console.warn("[Audio Processing] No audio blob retrieved. Skipping save process.");
+                        window.location.href = redirectUrl;
                     }
                 } catch (error) {
-                    console.error(`[Recording Timer] ❌ Error during end call process:`, error);
-                    
+                    console.error(`[Call End Process] ❌ Error during end call process:`, error);
                     setErrorMessage('Error processing interview data. Redirecting...');
+                    setTimeout(() => { window.location.href = redirectUrl; }, 4000);
+                } finally {
                     setIsProcessing(false);
-                    
-                    // Fallback: redirect anyway after longer delay
-                    setTimeout(() => {
-                        console.log(`[Recording Timer] 🔄 Fallback redirect after error...`);
-                        router.push('/my-interviews');
-                    }, 4000);
+                }
+            } else {
+                if (type === 'interview') {
+                    console.log("[Call Flow] No interviewId or userId, redirecting without saving.");
+                    window.location.href = '/my-interviews';
                 }
             }
         };
@@ -423,18 +423,7 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
                         // Fallback to assistant if workflow start fails
                         await startVapiCall('assistant');
                     }
-                    
-                    // Start encrypted recording for interview mode
-                    if (userId) {
-                        try {
-                            const cleanup = await vapiEncryptionService.startEncryptedRecording(interviewId);
-                            cleanupRecordingRef.current = cleanup;
-                            console.log("Encrypted recording started for interview:", interviewId);
-                        } catch (error) {
-                            console.error("Failed to start encrypted recording:", error);
-                            // Continue with the call even if encryption fails
-                        }
-                    }
+
                 } else if (type === 'generate') {
                     // For interview generation mode - simpler assistant
                     const generateAssistant = process.env.NEXT_PUBLIC_VAPI_GENERATE_ASSISTANT_ID;

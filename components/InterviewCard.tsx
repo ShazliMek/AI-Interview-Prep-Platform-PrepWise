@@ -4,9 +4,17 @@ import { getRandomInterviewCover } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import DisplayTechIcons from './DisplayTechIcons';
+import { InterviewCardProps, Feedback } from '@/types';
 
 
-const InterviewCard = ({interviewId, userId, role, type, techstack, createdAt}: InterviewCardProps) => {
+const formatDuration = (seconds?: number) => {
+  if (!seconds) return '--:--';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const InterviewCard = ({interviewId, userId, role, type, techstack, createdAt, duration}: InterviewCardProps) => {
     const feedback = null as Feedback | null;
     // technical 
     // mix of technical/behavioral
@@ -30,6 +38,10 @@ const InterviewCard = ({interviewId, userId, role, type, techstack, createdAt}: 
                     <div className='flex flex-row gap-2'>
                         <Image src="/star.svg" alt="star icon" width={22} height={22} />
                         <p>{feedback?.totalScore || '---'}/100</p>
+                    </div>
+                    <div className='flex flex-row gap-2'>
+                        <Image src="/clock.svg" alt="duration icon" width={22} height={22} />
+                        <p>{formatDuration(duration)}</p>
                     </div>
                 </div>
                 <p className='line-clamp-2 mt-5'>

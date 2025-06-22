@@ -1,7 +1,14 @@
 // Voice data storage and encryption service - MongoDB version
 
 import { connectToMongoDB } from '@/lib/mongodb';
-import { VoiceRecording, EncryptionKey, VoiceAnalysis, IVoiceRecording, IEncryptionKey } from '@/lib/models/mongodb-schemas';
+import { 
+  VoiceRecording, 
+  EncryptionKey, 
+  VoiceAnalysis, 
+  IVoiceRecording, 
+  IEncryptionKey,
+  InterviewAnalysis 
+} from '@/lib/models/mongodb-schemas';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -187,8 +194,8 @@ export const voiceDataServiceMongoDB = {
     try {
       await connectToMongoDB();
       
-      // Ensure duration is an integer
-      const integerDuration = Math.floor(duration);
+      // Ensure duration is an integer and at least 1 second
+      const integerDuration = Math.max(1, Math.floor(duration));
       console.log(`[MongoDB Voice Service] Updating recording duration for interview: ${interviewId}, duration: ${integerDuration}s (integer)`);
       
       // Build query - include userId if provided for additional security
@@ -198,10 +205,28 @@ export const voiceDataServiceMongoDB = {
         console.log(`[MongoDB Voice Service] Including userId in query for additional security: ${userId}`);
       }
       
+      // First update the recording document
       const result = await VoiceRecording.updateOne(
         query,
-        { $set: { rec_length: integerDuration } }
+        { 
+          $set: { 
+            rec_length: integerDuration,
+            'metadata.duration': integerDuration 
+          } 
+        }
       );
+      
+      // Also update any existing analysis records with the duration
+      try {
+        await InterviewAnalysis.updateMany(
+          { interviewId },
+          { $set: { 'analysis.duration_seconds': integerDuration } }
+        );
+        console.log(`[MongoDB Voice Service] ✅ Updated duration in analysis records for interview: ${interviewId}`);
+      } catch (analysisError) {
+        console.warn(`[MongoDB Voice Service] ⚠️ Could not update analysis records:`, analysisError);
+        // Continue even if analysis update fails
+      }
       
       if (result.matchedCount > 0) {
         console.log(`[MongoDB Voice Service] ✅ Successfully updated duration for interview: ${interviewId}`);

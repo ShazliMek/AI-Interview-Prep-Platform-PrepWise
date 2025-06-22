@@ -12,125 +12,74 @@ export const vapiEncryptionService = {
    * @param interviewId The ID of the interview session
    * @returns A cleanup function to stop recording
    */
-  async startEncryptedRecording(interviewId: string): Promise<() => void> {
-    // This will hold audio chunks
+  async startEncryptedRecording(interviewId: string): Promise<() => Promise<Blob | null>> {
     const audioChunks: Blob[] = [];
     let isRecording = true;
     let recordingStream: MediaStream | null = null;
     let mediaRecorder: MediaRecorder | null = null;
-    
+    let resolveRecordingPromise: (blob: Blob | null) => void;
+
+    const recordingPromise = new Promise<Blob | null>((resolve) => {
+      resolveRecordingPromise = resolve;
+    });
+
     try {
-      // Get current user via API call instead of direct import
       const userResponse = await fetch('/api/user/current');
       const userData = await userResponse.json();
-      
+
       if (!userData.success || !userData.user) {
         throw new Error("User not authenticated");
       }
 
-      // Check browser compatibility
       if (!navigator.mediaDevices || !MediaRecorder) {
         console.warn("Recording not supported in this browser");
-        return () => {}; // Return empty cleanup function
+        return async () => null;
       }
-      
-      // Request microphone access
+
       recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Create MediaRecorder instance
       mediaRecorder = new MediaRecorder(recordingStream);
-      
-      // Start recording
+
       mediaRecorder.start();
-      
-      // Collect audio chunks
+
       mediaRecorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0 && isRecording) {
           audioChunks.push(event.data);
         }
       });
 
-      // Save recording when stopped
-      mediaRecorder.addEventListener('stop', async () => {
-        if (!isRecording || audioChunks.length === 0) return;
-        
-        try {
-          // Combine chunks into a single blob
+      mediaRecorder.addEventListener('stop', () => {
+        if (audioChunks.length > 0) {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          
-          // Convert to buffer for encryption
-          const arrayBuffer = await audioBlob.arrayBuffer();
-          const audioBuffer = Buffer.from(arrayBuffer);
-          
-          // Create metadata
-          const metadata = {
-            duration: 0, // Would need to calculate actual duration
-            fileSize: audioBuffer.byteLength,
-            mimeType: 'audio/webm'
-          };
-          
-          // Store encrypted recording via API (try MongoDB first, fallback to Firebase)
-          const formData = new FormData();
-          formData.append('audio', audioBlob);
-          formData.append('interviewId', interviewId);
-          formData.append('metadata', JSON.stringify(metadata));
-          
-          // Try MongoDB endpoint first
-          let response = await fetch('/api/user/recordings-mongodb', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!response.ok) {
-            console.log('MongoDB storage failed, trying Firebase fallback...');
-            // Fallback to Firebase endpoint
-            response = await fetch('/api/user/recordings', {
-              method: 'POST',
-              body: formData
-            });
-          }
-          
-          if (response.ok) {
-            const result = await response.json();
-            console.log("Interview recording encrypted and stored successfully:", result);
-          } else {
-            const errorText = await response.text();
-            console.error("Failed to store recording:", errorText);
-          }
-        } catch (error) {
-          console.error("Failed to encrypt and store interview recording:", error);
+          resolveRecordingPromise(audioBlob);
+        } else {
+          resolveRecordingPromise(null);
         }
       });
-      
-      // Listen for Vapi call end to trigger saving
+
       const handleCallEnd = () => {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
           mediaRecorder.stop();
         }
       };
-      
+
       vapi.on('call-end', handleCallEnd);
-      
-      // Return cleanup function
+
       return () => {
         isRecording = false;
-        
-        // Clean up Vapi event listener
         vapi.off('call-end', handleCallEnd);
-        
-        // Stop recording
+
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
           mediaRecorder.stop();
         }
-        
-        // Stop all tracks
+
         if (recordingStream) {
           recordingStream.getTracks().forEach(track => track.stop());
         }
+        return recordingPromise;
       };
     } catch (error) {
       console.error("Error starting encrypted recording:", error);
-      return () => {}; // Return empty cleanup function
+      return async () => null;
     }
   },
   

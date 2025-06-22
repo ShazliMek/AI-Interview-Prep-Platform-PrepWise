@@ -4,15 +4,10 @@ import { getPresetInterviewById } from '@/constants/presets';
 import Link from 'next/link';
 import React from 'react';
 
-const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) => {
+const Page = async ({ searchParams }: { searchParams: { presetId?: string } }) => {
   const user = await getCurrentUser();
   
-  // For Next.js Server Components, we need to access searchParams properties safely
-  // without using the spread operator or direct property access
-  let presetId: string | undefined;
-  if (searchParams) {
-    presetId = searchParams.presetId;
-  }
+  const { presetId } = searchParams;
   
   console.log("Interview page - presetId:", presetId);
 

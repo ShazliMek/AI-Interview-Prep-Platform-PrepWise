@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,6 +57,7 @@ interface AnalysisResult {
 }
 
 export default function MyInterviewsPage() {
+  const searchParams = useSearchParams();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,8 @@ export default function MyInterviewsPage() {
     }
   }, [recordings]);
 
+
+
   const fetchRecordings = async () => {
     setLoading(true);
     setError(null);
@@ -114,7 +118,23 @@ export default function MyInterviewsPage() {
       const data = await response.json();
       
       if (data.success) {
-        setRecordings(data.recordings);
+        // Handle duration override from URL to fix redirect race condition
+        const newInterviewId = searchParams.get('newInterviewId');
+        const durationStr = searchParams.get('duration');
+        let recordingsData = data.recordings;
+
+        if (newInterviewId && durationStr) {
+          const duration = parseInt(durationStr, 10);
+          recordingsData = recordingsData.map((rec: Recording) => {
+            if (rec.interviewId === newInterviewId && rec.rec_length === 0) {
+              console.log(`[Duration Override] Correcting duration for new interview ${newInterviewId} from 0 to ${duration}s.`);
+              return { ...rec, rec_length: duration };
+            }
+            return rec;
+          });
+        }
+
+        setRecordings(recordingsData);
         
         // 🎯 LOG REC_LENGTH VALUES FOR ALL RECORDINGS
         console.log(`[REC_LENGTH] ===== RECORDING DURATIONS FROM DATABASE =====`);
@@ -130,10 +150,14 @@ export default function MyInterviewsPage() {
         
         const newAudioStates: Record<string, AudioState> = {};
         data.recordings.forEach((recording: Recording) => {
+          // Use rec_length first, fall back to metadata.duration if not available
+          const duration = recording.rec_length > 0 ? recording.rec_length : (recording.metadata?.duration || 0);
+          console.log(`[Audio Setup] Setting up recording ${recording.id} with duration: ${duration}s (rec_length: ${recording.rec_length}, metadata.duration: ${recording.metadata?.duration})`);
+          
           newAudioStates[recording.id] = {
             isPlaying: false,
             currentTime: 0,
-            duration: recording.metadata.duration || 0,
+            duration: duration,
             isLoading: false
           };
         });

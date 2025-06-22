@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import AnalysisReportCard from '@/components/AnalysisReportCard'; // Corrected import path
 
@@ -9,6 +10,7 @@ interface AnalysisResult {
   clarity: { filler_word_count: number };
   confidence_metrics: { pitch_stability_score: number };
   pace: number;
+  interviewId: string; // Assuming the analysis response includes the interview ID
   // Add other expected properties from your backend analysis
 }
 
@@ -18,6 +20,8 @@ const InterviewAnalysisPage = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStartTimeRef = useRef<number | null>(null);
+  const router = useRouter();
 
   const handleStartRecording = async () => {
     try {
@@ -35,6 +39,7 @@ const InterviewAnalysisPage = () => {
       };
 
       mediaRecorderRef.current.start();
+      recordingStartTimeRef.current = Date.now();
       setIsRecording(true);
     } catch (error) {
       console.error('Error accessing microphone:', error);
@@ -66,7 +71,7 @@ const InterviewAnalysisPage = () => {
 
       const analysis = await response.json();
       console.log('Analysis Complete:', analysis);
-      setAnalysisResult(analysis); // <--- THIS IS THE FIX
+      setAnalysisResult(analysis);
     } catch (error) {
       console.error('Error sending audio for analysis:', error);
       alert('An error occurred during analysis. See the console for details.');
@@ -75,8 +80,30 @@ const InterviewAnalysisPage = () => {
     }
   };
 
-  const handleEndInterview = () => {
-    setAnalysisResult(null);
+  const handleEndInterview = async () => {
+    if (analysisResult && recordingStartTimeRef.current) {
+      const duration = (Date.now() - recordingStartTimeRef.current) / 1000; // Duration in seconds
+      try {
+        await fetch('/api/update-duration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            interviewId: analysisResult.interviewId,
+            duration 
+          }),
+        });
+        window.location.href = '/my-interviews';
+      } catch (error) {
+        console.error('Failed to update duration:', error);
+        // Still redirect even if the update fails
+        window.location.href = '/my-interviews';
+      }
+    } else {
+      // Fallback for cases where analysisResult is not available
+      window.location.href = '/my-interviews';
+    }
   };
 
   return (
