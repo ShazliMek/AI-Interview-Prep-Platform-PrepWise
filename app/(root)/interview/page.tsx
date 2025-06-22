@@ -4,11 +4,45 @@ import { getPresetInterviewById } from '@/constants/presets';
 import Link from 'next/link';
 import React from 'react';
 
-const Page = async ({ searchParams }: { searchParams: { presetId?: string } }) => {
+const isCustomInterview = (searchParams?: { presetId?: string }) => {
+  // If no presetId, or the route is for a generic interview type, treat as custom
+  if (!searchParams || !searchParams.presetId) return true;
+  // You can add more logic here if you want to distinguish further
+  return false;
+};
+
+const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) => {
   const user = await getCurrentUser();
-  
-  const { presetId } = searchParams;
-  
+  let presetId: string | undefined;
+  if (searchParams) {
+    presetId = searchParams.presetId;
+  }
+
+  // If this is a custom interview (no presetId), show the custom agent
+  if (isCustomInterview(searchParams)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6">
+        <div className="max-w-4xl w-full text-center">
+          <h1 className="text-4xl font-bold mb-2">Custom Interview</h1>
+          <p className="text-lg text-gray-600 mb-3">Practice for any role, company, or tech stack!</p>
+          <div className="bg-blue-50 p-4 rounded-lg mb-6 text-left">
+            <h3 className="text-lg font-semibold mb-2">How it works</h3>
+            <p className="text-sm text-gray-700 mb-2">
+              The AI interviewer will first ask you for the company, role, tech stack, and experience level. Then it will conduct a realistic interview based on your answers.
+            </p>
+            <p className="text-sm text-gray-700">
+              Click the &quot;Call&quot; button below to start your custom interview.
+            </p>
+          </div>
+          <Agent 
+            userId={user?.id} 
+            type='custom' // Custom type triggers the new agent logic
+          />
+        </div>
+      </div>
+    );
+  }
+
   console.log("Interview page - presetId:", presetId);
 
   if (presetId) {
@@ -37,11 +71,13 @@ const Page = async ({ searchParams }: { searchParams: { presetId?: string } }) =
             </div>
             
             <Agent 
-              userName={user?.name || 'Guest'} 
               userId={user?.id} 
               interviewId={presetInterview.id} 
               type='interview' 
               questions={presetInterview.questions}
+              interviewRole={presetInterview.role}
+              interviewLevel={presetInterview.level}
+              company={presetInterview.company}
             />
           </div>
         </div>

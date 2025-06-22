@@ -13,9 +13,18 @@ export type VapiEventType =
 // Configuration for starting a Vapi call
 export interface VapiCallConfig {
   // The assistant ID to use for the call
-  assistant: string;
-  // Optional variables to pass to the assistant
-  variables?: Record<string, string>;
+  // Either assistantId or assistant can be used depending on SDK version
+  assistantId?: string;
+  assistant?: string;
+  // Optional assistant overrides including variable values
+  assistantOverrides?: {
+    variableValues?: Record<string, string | number>;
+  };
+  // Optional messages to initialize the conversation
+  messages?: Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }>;
 }
 
 // Event handlers
@@ -29,7 +38,7 @@ export type VapiErrorHandler = (error: Error) => void;
 // Main Vapi SDK interface
 export interface VapiSdk {
   // Start a call with the given configuration
-  start(config: VapiCallConfig): Promise<void>;
+  start(config: VapiCallConfig | string): Promise<void>;
   
   // Stop the active call
   stop(): Promise<void>;

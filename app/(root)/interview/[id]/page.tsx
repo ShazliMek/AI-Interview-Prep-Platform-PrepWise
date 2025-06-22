@@ -9,22 +9,22 @@ interface PageProps {
 
 const InterviewPage = async ({ params }: PageProps) => {
   const user = await getCurrentUser();
-  const { id: interviewId } = await params;
+  const { id } = await params;
 
   if (!user) {
     redirect('/sign-in');
   }
 
-  // In a real app, you'd fetch interview details from database
-  // For now, we'll use the ID to conduct the interview
-  
+  // Treat the [id] param as the job title for custom interviews
+  const jobTitle = id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); // e.g. 'software-engineer' -> 'Software Engineer'
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6">
       <div className="max-w-4xl w-full">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-4">AI Mock Interview</h1>
           <p className="text-gray-600">
-            Ready to begin your interview? Click the call button below to start.
+            Ready to begin your interview for <b>{jobTitle}</b>? Click the call button below to start.
             Your session will be recorded and encrypted for analysis.
           </p>
           <div className="mt-4 p-4 bg-blue-50 rounded-lg">
@@ -38,15 +38,8 @@ const InterviewPage = async ({ params }: PageProps) => {
         <Agent 
           userName={user.name} 
           userId={user.id} 
-          interviewId={interviewId}
-          type="interview"
-          questions={[
-            "Tell me about yourself and your background",
-            "What interests you most about this role?",
-            "Describe a challenging project you've worked on",
-            "How do you handle working under pressure?",
-            "Where do you see yourself in 5 years?"
-          ]}
+          type="custom"
+          jobTitle={jobTitle}
         />
       </div>
     </div>

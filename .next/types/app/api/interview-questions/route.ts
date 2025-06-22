@@ -1,8 +1,8 @@
-// File: /Users/shazlimekrani/Desktop/spur_v7/AI-Interview-Prep-Platform-PrepWise/app/api/user/recordings-durations/route.ts
-import * as entry from '../../../../../../app/api/user/recordings-durations/route.js'
+// File: /Users/shazlimekrani/Desktop/spur_v7/AI-Interview-Prep-Platform-PrepWise/app/api/interview-questions/route.ts
+import * as entry from '../../../../../app/api/interview-questions/route.js'
 import type { NextRequest } from 'next/server.js'
 
-type TEntry = typeof import('../../../../../../app/api/user/recordings-durations/route.js')
+type TEntry = typeof import('../../../../../app/api/interview-questions/route.js')
 
 type SegmentParams<T extends Object = any> = T extends Record<string, any>
   ? { [K in keyof T]: T[K] extends string ? string | string[] | undefined : never }
