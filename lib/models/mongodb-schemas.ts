@@ -8,6 +8,7 @@ export interface IVoiceRecording extends Document {
   recordingUrl: string; // Local path or cloud storage URL
   encryptionKeyId: string;
   processingStatus: 'pending' | 'processed' | 'failed';
+  rec_length: number; // Recording length in seconds (integer from visual timer)
   createdAt: Date;
   expiresAt: Date;
   metadata: {
@@ -34,6 +35,15 @@ const VoiceRecordingSchema = new Schema<IVoiceRecording>({
     default: 'pending',
     index: true
   },
+  rec_length: { 
+    type: Number, 
+    required: true, 
+    default: 0,
+    validate: {
+      validator: Number.isInteger,
+      message: 'rec_length must be an integer'
+    }
+  }, // Recording duration from visual timer (integer seconds)
   createdAt: { type: Date, default: Date.now, index: true },
   expiresAt: { type: Date, required: true, index: true },
   metadata: {
@@ -165,15 +175,66 @@ const UserPrivacySettingsSchema = new Schema<IUserPrivacySettings>({
   collection: 'user_privacy_settings'
 });
 
+// Interview Analysis Schema
+export interface IInterviewAnalysis extends Document {
+  _id: string;
+  recordingId: string;
+  userId: string;
+  interviewId: string;
+  analysis: {
+    clarity: { filler_word_count: number };
+    confidence_metrics: { pitch_stability_score: number };
+    pace: number;
+    transcript?: string;
+    tone?: { label: string; confidence: number };
+    duration_seconds?: number;
+    overallScore?: number;
+    recommendations?: string[];
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const InterviewAnalysisSchema = new Schema<IInterviewAnalysis>({
+  recordingId: { type: String, required: true, index: true },
+  userId: { type: String, required: true, index: true },
+  interviewId: { type: String, required: true, index: true },
+  analysis: {
+    clarity: {
+      filler_word_count: { type: Number, required: true }
+    },
+    confidence_metrics: {
+      pitch_stability_score: { type: Number, required: true }
+    },
+    pace: { type: Number, required: true },
+    transcript: String,
+    tone: {
+      label: String,
+      confidence: Number
+    },
+    duration_seconds: Number,
+    overallScore: Number,
+    recommendations: [String]
+  }
+}, {
+  timestamps: true,
+  collection: 'interview_analyses'
+});
+
+InterviewAnalysisSchema.index({ recordingId: 1 }, { unique: true });
+InterviewAnalysisSchema.index({ userId: 1, createdAt: -1 });
+
 // Create models with proper typing
 export const VoiceRecording: Model<IVoiceRecording> = mongoose.models.VoiceRecording || mongoose.model<IVoiceRecording>('VoiceRecording', VoiceRecordingSchema);
 export const EncryptionKey: Model<IEncryptionKey> = mongoose.models.EncryptionKey || mongoose.model<IEncryptionKey>('EncryptionKey', EncryptionKeySchema);
 export const VoiceAnalysis: Model<IVoiceAnalysis> = mongoose.models.VoiceAnalysis || mongoose.model<IVoiceAnalysis>('VoiceAnalysis', VoiceAnalysisSchema);
 export const UserPrivacySettings: Model<IUserPrivacySettings> = mongoose.models.UserPrivacySettings || mongoose.model<IUserPrivacySettings>('UserPrivacySettings', UserPrivacySettingsSchema);
+export const InterviewAnalysis: Model<IInterviewAnalysis> = mongoose.models.InterviewAnalysis || mongoose.model<IInterviewAnalysis>('InterviewAnalysis', InterviewAnalysisSchema);
 
 export default {
   VoiceRecording,
   EncryptionKey,
   VoiceAnalysis,
-  UserPrivacySettings
+  UserPrivacySettings,
+  InterviewAnalysis
 };

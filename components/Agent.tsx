@@ -41,10 +41,178 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
     const [messages, setMessages] = useState<SavedMessage[]>([]);
     const cleanupRecordingRef = useRef<(() => void) | null>(null);
     const [lastMessage, setLastMessage] = useState<string>('');
+    
+    // Visual timer for recording duration
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const startTimeRef = useRef<number | null>(null);
+    const lastKnownDurationRef = useRef<number>(0); // Backup duration tracking
+    
+    // Error handling state
+    const [errorMessage, setErrorMessage] = useState<string>('');
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Timer utility functions
+    const formatTimer = (seconds: number): string => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const startTimer = () => {
+        const now = Date.now();
+        startTimeRef.current = now;
+        lastKnownDurationRef.current = 0; // Reset backup duration
+        console.log(`[Timer] Starting timer at: ${now} (${new Date(now).toISOString()})`);
+        
+        timerRef.current = setInterval(() => {
+            if (startTimeRef.current) {
+                const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                setRecordingDuration(elapsed);
+                lastKnownDurationRef.current = elapsed; // Keep backup
+                // Only log every 10 seconds to avoid spam
+                if (elapsed % 10 === 0) {
+                    console.log(`[Timer] Recording duration: ${elapsed}s`);
+                }
+            }
+        }, 1000);
+    };
+
+    const stopTimer = () => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+        
+        // Calculate final duration based on start time
+        let finalDuration = 0;
+        if (startTimeRef.current) {
+            finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+            console.log(`[Timer] Calculated final duration from timestamps: ${finalDuration}s`);
+        } else {
+            console.log(`[Timer] Warning: No start time recorded`);
+        }
+        
+        // Use backup duration if calculation seems wrong
+        const backupDuration = lastKnownDurationRef.current;
+        const stateDuration = recordingDuration;
+        
+        console.log(`[Timer] Duration comparison - Calculated: ${finalDuration}s, Backup: ${backupDuration}s, State: ${stateDuration}s`);
+        
+        // Choose the best duration value (prefer calculated, fallback to backup, then state)
+        if (finalDuration > 0) {
+            console.log(`[Timer] Using calculated duration: ${finalDuration}s`);
+        } else if (backupDuration > 0) {
+            finalDuration = backupDuration;
+            console.log(`[Timer] Using backup duration: ${finalDuration}s`);
+        } else if (stateDuration > 0) {
+            finalDuration = stateDuration;
+            console.log(`[Timer] Using state duration: ${finalDuration}s`);
+        } else {
+            console.error(`[Timer] ❌ All duration values are 0! This indicates a timer malfunction.`);
+        }
+        
+        // Reset references
+        startTimeRef.current = null;
+        lastKnownDurationRef.current = 0;
+        
+        return finalDuration;
+    };
+
+    // Save recording duration to MongoDB
+    const saveRecordingDuration = async (duration: number) => {
+        if (!interviewId || !userId) return;
+        
+        try {
+            // Ensure duration is an integer
+            const integerDuration = Math.floor(duration);
+            console.log(`[Recording Timer] Saving duration: ${integerDuration}s (integer) for interview: ${interviewId}`);
+            
+            const response = await fetch('/api/user/recordings-mongodb/update-duration', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    interviewId,
+                    userId,
+                    duration: integerDuration // Send as integer
+                })
+            });
+            
+            if (response.ok) {
+                console.log(`[Recording Timer] ✅ Duration saved successfully: ${integerDuration}s`);
+            } else {
+                console.error(`[Recording Timer] ❌ Failed to save duration:`, await response.text());
+            }
+        } catch (error) {
+            console.error(`[Recording Timer] ❌ Error saving duration:`, error);
+        }
+    };
+
+    // Verify recording duration was saved correctly
+    const verifyRecordingDuration = async (expectedDuration: number): Promise<boolean> => {
+        if (!interviewId) return false;
+        
+        try {
+            console.log(`[Duration Verification] 🔍 Verifying rec_length was saved correctly...`);
+            console.log(`[Duration Verification] Looking for interview: ${interviewId}`);
+            console.log(`[Duration Verification] Expected duration: ${expectedDuration}s`);
+            
+            const response = await fetch('/api/user/recordings-mongodb');
+            if (!response.ok) {
+                console.error(`[Duration Verification] ❌ Failed to fetch recordings for verification`);
+                return false;
+            }
+            
+            const data = await response.json();
+            if (!data.success) {
+                console.error(`[Duration Verification] ❌ API returned error:`, data.message);
+                return false;
+            }
+            
+            // Log all recordings for debugging
+            console.log(`[Duration Verification] 📋 All user recordings:`, data.recordings.map((r: any) => ({
+                id: r.id,
+                interviewId: r.interviewId,
+                rec_length: r.rec_length,
+                createdAt: r.createdAt
+            })));
+            
+            // Find our recording by interviewId
+            const recording = data.recordings.find((r: any) => r.interviewId === interviewId);
+            
+            if (!recording) {
+                console.error(`[Duration Verification] ❌ Recording not found for interview: ${interviewId}`);
+                console.error(`[Duration Verification] Available interview IDs:`, data.recordings.map((r: any) => r.interviewId));
+                return false;
+            }
+            
+            const savedDuration = recording.rec_length || 0;
+            console.log(`[Duration Verification] 📊 Found recording for interview: ${interviewId}`);
+            console.log(`[Duration Verification] 📊 Saved rec_length: ${savedDuration}s`);
+            console.log(`[Duration Verification] 📊 Recording created at: ${recording.createdAt}`);
+            
+            if (savedDuration === expectedDuration) {
+                console.log(`[Duration Verification] ✅ Verification SUCCESS! rec_length matches expected duration (${expectedDuration}s)`);
+                return true;
+            } else {
+                console.error(`[Duration Verification] ❌ Verification FAILED! Expected: ${expectedDuration}s, Saved: ${savedDuration}s`);
+                return false;
+            }
+            
+        } catch (error) {
+            console.error(`[Duration Verification] ❌ Error during verification:`, error);
+            return false;
+        }
+    };
 
     useEffect(() => {
         const handleCallStart = async () => {
+            console.log(`[Call Flow] ✅ Call started event received at: ${Date.now()} (${new Date().toISOString()})`);
             setCallStatus(CallStatus.ACTIVE);
+            
+            // Start the visual timer
+            console.log(`[Recording Timer] Starting timer for interview: ${interviewId}`);
+            startTimer();
             
             // Start encrypted recording if we have an interview ID
             if (interviewId && userId) {
@@ -58,9 +226,25 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
             }
         };
         
-        const handleCallEnd = () => {
+        const handleCallEnd = async () => {
+            console.log(`[Call Flow] ❌ Call ended event received at: ${Date.now()} (${new Date().toISOString()})`);
             setCallStatus(CallStatus.FINISHED);
+            setErrorMessage(''); // Clear any previous errors
             
+            // Stop the timer and get final duration
+            console.log(`[Timer] Call ended, stopping timer...`);
+            console.log(`[Timer] Current recordingDuration state: ${recordingDuration}s`);
+            console.log(`[Timer] Start time ref: ${startTimeRef.current}`);
+            console.log(`[Timer] Last known duration ref: ${lastKnownDurationRef.current}s`);
+            
+            const finalDuration = stopTimer();
+            const integerDuration = Math.floor(finalDuration);
+            console.log(`[Recording Timer] ⏱️ Final calculated duration: ${finalDuration}s (will save as ${integerDuration}s)`);
+            
+            // Warn if duration seems suspiciously short
+            if (finalDuration < 5) {
+                console.warn(`[Recording Timer] ⚠️ Warning: Very short call duration (${finalDuration}s). This might indicate a connection issue or immediate call termination.`);
+            }
             // Stop encrypted recording
             if (cleanupRecordingRef.current) {
                 cleanupRecordingRef.current();
@@ -68,11 +252,55 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
                 console.log("Encrypted recording stopped");
             }
             
-            // If this is an interview, redirect to analysis after a delay
+            // If this is an interview, save duration and verify before redirecting
             if (type === 'interview' && interviewId) {
-                setTimeout(() => {
-                    router.push(`/interview-analysis?id=${interviewId}`);
-                }, 2000);
+                setIsProcessing(true);
+                try {
+                    // Step 1: Save the recording duration to MongoDB
+                    console.log(`[Recording Timer] 💾 Saving duration: ${integerDuration}s to MongoDB...`);
+                    await saveRecordingDuration(finalDuration);
+                    
+                    // Step 2: Wait a moment for the database to update
+                    console.log(`[Recording Timer] ⏳ Waiting for database update...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Step 3: Verify the duration was saved correctly
+                    console.log(`[Recording Timer] 🔍 Verifying rec_length was saved correctly...`);
+                    const verificationSuccess = await verifyRecordingDuration(integerDuration);
+                    
+                    if (verificationSuccess) {
+                        // Step 4: Only redirect if verification succeeds
+                        console.log(`[Recording Timer] ✅ Verification successful! Redirecting to my-interviews...`);
+                        setIsProcessing(false);
+                        setTimeout(() => {
+                            router.push('/my-interviews');
+                        }, 1000);
+                    } else {
+                        // Step 5: Handle verification failure
+                        console.error(`[Recording Timer] ❌ Verification failed! rec_length may not have been saved correctly.`);
+                        console.error(`[Recording Timer] 🚨 Manual intervention may be required for interview: ${interviewId}`);
+                        
+                        setErrorMessage('Warning: Recording duration may not have been saved correctly. Redirecting anyway...');
+                        setIsProcessing(false);
+                        
+                        // Still redirect but with a warning
+                        setTimeout(() => {
+                            console.log(`[Recording Timer] ⚠️ Redirecting despite verification failure...`);
+                            router.push('/my-interviews');
+                        }, 3000);
+                    }
+                } catch (error) {
+                    console.error(`[Recording Timer] ❌ Error during end call process:`, error);
+                    
+                    setErrorMessage('Error processing interview data. Redirecting...');
+                    setIsProcessing(false);
+                    
+                    // Fallback: redirect anyway after longer delay
+                    setTimeout(() => {
+                        console.log(`[Recording Timer] 🔄 Fallback redirect after error...`);
+                        router.push('/my-interviews');
+                    }, 4000);
+                }
             }
         };
         
@@ -215,6 +443,42 @@ const Agent = ({userName, userId, interviewId, type, questions}: AgentProps) => 
                         <p className={cn('transition-opacity duration-500', 'animate-fadeIn opacity-100')}>
                             {lastMessage}
                         </p>
+                    </div>
+                </div>
+            )}
+            
+            {/* Recording Timer Display */}
+            {type === 'interview' && callStatus === CallStatus.ACTIVE && (
+                <div className='w-full flex justify-center mb-4'>
+                    <div className='bg-red-100 border border-red-300 rounded-lg px-4 py-2 flex items-center space-x-2'>
+                        <div className='w-3 h-3 bg-red-500 rounded-full animate-pulse'></div>
+                        <span className='text-red-700 font-mono text-lg font-semibold'>
+                            REC {formatTimer(recordingDuration)}
+                        </span>
+                    </div>
+                </div>
+            )}
+            
+            {/* Processing State Display */}
+            {type === 'interview' && isProcessing && (
+                <div className='w-full flex justify-center mb-4'>
+                    <div className='bg-blue-100 border border-blue-300 rounded-lg px-4 py-2 flex items-center space-x-2'>
+                        <div className='w-3 h-3 bg-blue-500 rounded-full animate-pulse'></div>
+                        <span className='text-blue-700 font-semibold'>
+                            Processing interview data...
+                        </span>
+                    </div>
+                </div>
+            )}
+            
+            {/* Error Message Display */}
+            {errorMessage && (
+                <div className='w-full flex justify-center mb-4'>
+                    <div className='bg-yellow-100 border border-yellow-300 rounded-lg px-4 py-2 flex items-center space-x-2'>
+                        <div className='w-3 h-3 bg-yellow-500 rounded-full'></div>
+                        <span className='text-yellow-700 font-semibold'>
+                            {errorMessage}
+                        </span>
                     </div>
                 </div>
             )}

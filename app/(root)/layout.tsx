@@ -14,7 +14,10 @@ const RootLayout = async ({children}:{children: ReactNode}) => {
   return (
     <div className='root-layout'>
       <nav className='flex items-center justify-between gap-2 p-4'> {/* Added justify-between for spacing */}
-        <Link href='/' className='flex items-center gap-2'>
+        <Link 
+          href='/' 
+          className='flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer'
+        >
           <Image src='/logo.svg' alt='logo' width={38} height={32} />
           <h2 className="text-primary-100">PrepWise</h2>
         </Link>
