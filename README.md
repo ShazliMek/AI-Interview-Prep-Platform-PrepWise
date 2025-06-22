@@ -74,3 +74,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## AI Interview Technology
+
+PrepWise leverages advanced AI technology for realistic interview experiences:
+
+- **Vapi AI Integration**: Voice-based AI assistant technology for natural conversation
+- **Structured Workflow**: Customized interview workflows that follow realistic interview patterns
+- **Preset Company Interviews**: Pre-configured interviews for specific companies and roles
+- **Real-time Feedback**: AI-driven analysis during and after the interview
+
+For more information on the Vapi workflow integration, see [the documentation](./docs/vapi-workflow.md).

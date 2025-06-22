@@ -32,7 +32,7 @@ if (!admin.apps.length) {
     // Method 2: Fallback to hardcoded service account file
     else {
       console.log(`[Firebase Admin] Using fallback service account file`);
-      const serviceAccountPath = path.join(process.cwd(), "ai-interview-prep-36e64-firebase-adminsdk-fbsvc-cf50acf351.json");
+      const serviceAccountPath = path.join(process.cwd(), "ai-interview-prep-36e64-firebase-adminsdk-fbsvc-f4721a4b70.json");
       
       const serviceAccountContent = fs.readFileSync(serviceAccountPath, 'utf8');
       const serviceAccount = JSON.parse(serviceAccountContent);

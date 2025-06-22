@@ -1,0 +1,400 @@
+{
+  "name": "AI Mock Interview Generator",
+  "nodes": [
+    {
+      "name": "introduction",
+      "type": "conversation",
+      "isStart": true,
+      "metadata": {
+        "position": {
+          "x": -400,
+          "y": -100
+        }
+      },
+      "prompt": "You are an expert interview coach helping candidates prepare for job interviews. Start by saying: 'Hi! I'm here to help you prepare for your interview. I can generate personalized practice questions based on your specific role and experience. Could you tell me about the position you're interviewing for?' Be friendly and encouraging.",
+      "messagePlan": {
+        "firstMessage": "Hi! I'm here to help you prepare for your interview. Could you tell me about the position you're interviewing for?"
+      }
+    },
+    {
+      "name": "collect_interview_details",
+      "type": "conversation",
+      "metadata": {
+        "position": {
+          "x": 100,
+          "y": 200
+        }
+      },
+      "prompt": "Collect interview preparation details by asking about: 1) Company name and job title, 2) Your experience level (entry, mid, senior), 3) Key technologies or skills for the role, 4) Any specific areas you want to focus on. Ask one question at a time and be encouraging. Keep responses under 30 words unless providing valuable guidance.",
+      "variableExtractionPlan": {
+        "output": [
+          {
+            "type": "string",
+            "title": "company",
+            "description": "the company name they're interviewing with"
+          },
+          {
+            "type": "string",
+            "title": "jobTitle",
+            "description": "the job title or position they're applying for"
+          },
+          {
+            "type": "string",
+            "title": "experience",
+            "description": "their experience level (entry, mid-level, senior, etc.)"
+          },
+          {
+            "type": "string",
+            "title": "techStack",
+            "description": "key technologies, programming languages, or skills for the role"
+          },
+          {
+            "type": "string",
+            "title": "notes",
+            "description": "any additional focus areas or special requirements they mentioned"
+          }
+        ]
+      }
+    },
+    {
+      "name": "fetch_custom_questions",
+      "type": "tool",
+      "metadata": {
+        "position": {
+          "x": 100,
+          "y": 400
+        }
+      },
+      "tool": {
+        "type": "function",
+        "function": {
+          "name": "fetch_interview_questions",
+          "description": "Fetches custom interview questions based on job details",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "company": {
+                "type": "string",
+                "description": "Company name"
+              },
+              "role": {
+                "type": "string", 
+                "description": "Job title/role"
+              },
+              "experience": {
+                "type": "string",
+                "description": "Experience level"
+              },
+              "tech": {
+                "type": "string",
+                "description": "Technology stack"
+              }
+            },
+            "required": ["company", "role"]
+          }
+        },
+        "server": {
+          "url": "http://localhost:3000/api/interview-questions"
+        }
+      }
+    },
+    {
+      "name": "start_mock_interview",
+      "type": "conversation",
+      "metadata": {
+        "position": {
+          "x": 100,
+          "y": 600
+        }
+      },
+      "prompt": "You are now the interviewer conducting a mock interview. Based on their details - Company: {{company}}, Role: {{jobTitle}}, Experience: {{experience}}, Tech Stack: {{techStack}}, Focus: {{notes}} - start the interview professionally. Use the custom questions provided: {{customQuestions.data.questions}}. Say: 'Great! Let's begin your mock interview for the {{jobTitle}} position at {{company}}. I'll ask you questions one at a time, just like a real interview. Take your time to answer each one. Let's start with: Tell me about yourself.' Wait for their response before asking the next question.",
+      "variableExtractionPlan": {
+        "output": [
+          {
+            "type": "string",
+            "title": "current_question",
+            "description": "the current question being asked"
+          }
+        ]
+      }
+    },
+    {
+      "name": "conduct_interview",
+      "type": "conversation", 
+      "metadata": {
+        "position": {
+          "x": 100,
+          "y": 900
+        }
+      },
+      "prompt": "Continue the mock interview as a professional interviewer. Ask ONE question at a time and wait for their complete response. Based on {{company}}: {{company}}, {{jobTitle}}: {{jobTitle}}, {{experience}}: {{experience}}, {{techStack}}: {{techStack}}, focus on {{notes}}. Use the custom questions provided: {{customQuestions.data.questions}}. After they answer, provide brief feedback like 'Good answer' or 'That's a solid example' then ask the next relevant question. Mix behavioral and technical questions. Be encouraging but professional. Keep the interview flowing naturally.",
+      "variableExtractionPlan": {
+        "output": [
+          {
+            "type": "number",
+            "title": "questions_asked",
+            "description": "number of questions asked so far"
+          }
+        ]
+      }
+    },
+    {
+      "name": "end_interview",
+      "type": "conversation",
+      "metadata": {
+        "position": {
+          "x": 100,
+          "y": 1200
+        }
+      },
+      "prompt": "Conclude the mock interview professionally. Say: 'That was excellent practice! You've completed your mock interview for the {{jobTitle}} position at {{company}}. You showed good preparation and thoughtful responses. Remember to speak clearly, give specific examples, and show enthusiasm in your real interview. Do you have any questions about the interview process, or would you like to practice any specific question again?'"
+    },
+    {
+      "name": "final_feedback",
+      "type": "conversation",
+      "metadata": {
+        "position": {
+          "x": -200,
+          "y": 1500
+        }
+      },
+      "prompt": "Provide personalized feedback as an interview coach. Give 2-3 specific tips for improvement based on their {{jobTitle}} role at {{company}} and {{experience}} level. Be encouraging and constructive. Then ask if they want to practice again or if they're ready to end the session.",
+      "variableExtractionPlan": {
+        "output": [
+          {
+            "type": "string",
+            "title": "final_feedback",
+            "description": "the personalized feedback and tips provided to the user"
+          }
+        ]
+      }
+    },
+    {
+      "name": "save_interview_data",
+      "type": "tool",
+      "metadata": {
+        "position": {
+          "x": 300,
+          "y": 1650
+        }
+      },
+      "tool": {
+        "type": "function",
+        "function": {
+          "name": "save_interview_session",
+          "description": "Saves interview session data for analytics",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "interviewData": {
+                "type": "object",
+                "properties": {
+                  "company": {"type": "string"},
+                  "jobTitle": {"type": "string"},
+                  "experience": {"type": "string"},
+                  "techStack": {"type": "string"},
+                  "notes": {"type": "string"},
+                  "questionsAsked": {"type": "number"}
+                }
+              },
+              "feedback": {"type": "string"},
+              "timestamp": {"type": "string"}
+            },
+            "required": ["interviewData"]
+          }
+        },
+        "server": {
+          "url": "http://localhost:3000/api/save-interview"
+        }
+      }
+    },
+    {
+      "name": "end_call_success",
+      "type": "tool",
+      "metadata": {
+        "position": {
+          "x": 100,
+          "y": 1800
+        }
+      },
+      "tool": {
+        "type": "endCall",
+        "function": {
+          "name": "end_successfully",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          }
+        },
+        "messages": [
+          {
+            "type": "request-start",
+            "content": "Best of luck with your real interview! Remember to be confident, give specific examples, and show your enthusiasm. You've got this!",
+            "blocking": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "transfer_to_human",
+      "type": "conversation",
+      "metadata": {
+        "position": {
+          "x": 400,
+          "y": 400
+        }
+      },
+      "prompt": "Confirm that user wants to speak to a human recruiter or interview expert, and ask them what specific help they need.",
+      "globalNodePlan": {
+        "enabled": true,
+        "enterCondition": "User wants to speak to a human or needs personalized career coaching"
+      }
+    },
+    {
+      "name": "transfer_call",
+      "type": "tool",
+      "metadata": {
+        "position": {
+          "x": 400,
+          "y": 600
+        }
+      },
+      "tool": {
+        "type": "transferCall",
+        "function": {
+          "name": "transfer_to_expert",
+          "parameters": {
+            "type": "object",
+            "required": [],
+            "properties": {}
+          }
+        },
+        "destinations": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "introduction",
+      "to": "collect_interview_details",
+      "condition": {
+        "type": "ai",
+        "prompt": "User responded positively and is ready to share interview details"
+      }
+    },
+    {
+      "from": "introduction",
+      "to": "end_call_success",
+      "condition": {
+        "type": "ai",
+        "prompt": "User is not interested or wants to end the call"
+      }
+    },
+    {
+      "from": "collect_interview_details",
+      "to": "fetch_custom_questions",
+      "condition": {
+        "type": "ai",
+        "prompt": "Sufficient information collected: at least job title and some experience level or tech stack information"
+      }
+    },
+    {
+      "from": "fetch_custom_questions",
+      "to": "start_mock_interview",
+      "condition": {
+        "type": "ai",
+        "prompt": "Questions fetched successfully or API call completed"
+      }
+    },
+    {
+      "from": "fetch_custom_questions",
+      "to": "start_mock_interview",
+      "condition": {
+        "type": "ai",
+        "prompt": "API call failed, proceed with default questions"
+      }
+    },
+    {
+      "from": "start_mock_interview",
+      "to": "conduct_interview",
+      "condition": {
+        "type": "ai",
+        "prompt": "User has answered the first question and interview should continue"
+      }
+    },
+    {
+      "from": "conduct_interview",
+      "to": "conduct_interview",
+      "condition": {
+        "type": "ai",
+        "prompt": "User answered a question and fewer than 6 questions have been asked total"
+      }
+    },
+    {
+      "from": "conduct_interview",
+      "to": "end_interview",
+      "condition": {
+        "type": "ai",
+        "prompt": "6 or more questions have been asked, or user wants to end the interview"
+      }
+    },
+    {
+      "from": "end_interview",
+      "to": "final_feedback",
+      "condition": {
+        "type": "ai",
+        "prompt": "User wants feedback or tips for improvement"
+      }
+    },
+    {
+      "from": "end_interview",
+      "to": "save_interview_data",
+      "condition": {
+        "type": "ai",
+        "prompt": "User is satisfied and ready to end the call"
+      }
+    },
+    {
+      "from": "final_feedback",
+      "to": "start_mock_interview",
+      "condition": {
+        "type": "ai",
+        "prompt": "User wants to practice again"
+      }
+    },
+    {
+      "from": "final_feedback",
+      "to": "save_interview_data",
+      "condition": {
+        "type": "ai",
+        "prompt": "User is ready to end the session"
+      }
+    },
+    {
+      "from": "save_interview_data",
+      "to": "end_call_success",
+      "condition": {
+        "type": "ai",
+        "prompt": "Interview data saved successfully or save operation completed"
+      }
+    },
+    {
+      "from": "save_interview_data",
+      "to": "end_call_success",
+      "condition": {
+        "type": "ai",
+        "prompt": "Failed to save interview data, but end call anyway"
+      }
+    },
+    {
+      "from": "transfer_to_human",
+      "to": "transfer_call",
+      "condition": {
+        "type": "ai",
+        "prompt": "User confirmed they want to speak with a human expert"
+      }
+    }
+  ],
+  "globalPrompt": "You are a professional interview coach assistant that conducts realistic mock interviews. Always maintain an encouraging, supportive tone. When conducting interviews, act like a real interviewer - ask ONE question at a time, wait for complete responses, provide brief feedback, then move to the next question. Keep responses concise and natural. Be interruptible - if the user starts speaking, stop immediately and listen. Focus on helping candidates feel prepared and confident."
+}
