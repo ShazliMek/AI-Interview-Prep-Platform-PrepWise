@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react'
 import { Button } from "@/components/ui/button";
 import Link from 'next/link'
@@ -8,6 +10,7 @@ import { presetInterviews } from '@/constants/presets';
 import PresetInterviewCard from '@/components/PresetInterviewCard';
 
 const page = () => {
+
   return (
     <>
     <section className='card-cta'>
@@ -16,9 +19,18 @@ const page = () => {
         <p className='text-lg'>
           Practice on real interview questions & get instant feedback
         </p>
-        <Button asChild className='btn-primary max-sm:full'>
-          <Link href="/interview">Start an Interview</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 md:flex-row">
+          <Button asChild className='btn-primary max-sm:full'>
+            <Link href="/interview">Start an Interview</Link>
+          </Button>
+          <Button 
+            asChild
+            variant="outline" 
+            className='max-sm:full'
+          >
+            <Link href="/my-interviews">My Interviews</Link>
+          </Button>
+        </div>
       </div>
       <Image src="/robot.png" alt="robo_dude" width={400} height={400} className='max-sm:hidden'/>
     </section>

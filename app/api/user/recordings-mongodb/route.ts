@@ -23,6 +23,7 @@ export async function GET() {
       userId: recording.userId,
       interviewId: recording.interviewId,
       processingStatus: recording.processingStatus,
+      rec_length: recording.rec_length || 0, // Include recording duration from visual timer
       createdAt: recording.createdAt,
       expiresAt: recording.expiresAt,
       metadata: {

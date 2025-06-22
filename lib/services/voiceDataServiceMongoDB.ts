@@ -179,6 +179,42 @@ export const voiceDataServiceMongoDB = {
       throw new Error('Failed to fetch user recordings');
     }
   },
+
+  /**
+   * Update recording duration for a specific interview
+   */
+  async updateRecordingDuration(interviewId: string, duration: number, userId?: string): Promise<boolean> {
+    try {
+      await connectToMongoDB();
+      
+      // Ensure duration is an integer
+      const integerDuration = Math.floor(duration);
+      console.log(`[MongoDB Voice Service] Updating recording duration for interview: ${interviewId}, duration: ${integerDuration}s (integer)`);
+      
+      // Build query - include userId if provided for additional security
+      const query: any = { interviewId };
+      if (userId) {
+        query.userId = userId;
+        console.log(`[MongoDB Voice Service] Including userId in query for additional security: ${userId}`);
+      }
+      
+      const result = await VoiceRecording.updateOne(
+        query,
+        { $set: { rec_length: integerDuration } }
+      );
+      
+      if (result.matchedCount > 0) {
+        console.log(`[MongoDB Voice Service] ✅ Successfully updated duration for interview: ${interviewId}`);
+        return true;
+      } else {
+        console.warn(`[MongoDB Voice Service] ❌ No recording found for interview: ${interviewId}${userId ? ` and user: ${userId}` : ''}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('[MongoDB Voice Service] Error updating recording duration:', error);
+      throw new Error('Failed to update recording duration');
+    }
+  },
   
   /**
    * Delete a voice recording
