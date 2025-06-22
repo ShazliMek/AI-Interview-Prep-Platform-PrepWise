@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
@@ -53,8 +53,105 @@ const Agent = ({
     const router = useRouter();
     const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [userIsSpeaking, setUserIsSpeaking] = useState(false);
     const [messages, setMessages] = useState<SavedMessage[]>([]);
     const cleanupRecordingRef = useRef<(() => void) | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const microphoneStreamRef = useRef<MediaStream | null>(null);
+    const userSpeakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
+    // Setup microphone activity monitoring to detect when user is speaking
+    const setupMicrophoneMonitoring = useCallback(async () => {
+        try {
+            // Clean up any existing audio processing
+            if (microphoneStreamRef.current) {
+                microphoneStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (audioContextRef.current) {
+                await audioContextRef.current.close();
+            }
+            if (userSpeakingTimeoutRef.current) {
+                clearTimeout(userSpeakingTimeoutRef.current);
+            }
+            
+            // Get microphone access
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            microphoneStreamRef.current = stream;
+            
+            // Set up audio analysis
+            const audioContext = new AudioContext();
+            audioContextRef.current = audioContext;
+            
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            analyserRef.current = analyser;
+            
+            const microphone = audioContext.createMediaStreamSource(stream);
+            microphone.connect(analyser);
+            
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            // Function to check audio levels
+            const checkAudioLevel = () => {
+                if (!analyserRef.current || callStatus !== CallStatus.ACTIVE) return;
+                
+                analyserRef.current.getByteFrequencyData(dataArray);
+                
+                // Calculate average volume
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+                
+                // Threshold for speaking detection (adjust as needed)
+                const threshold = 10; // Lower threshold to make it more sensitive
+                
+                if (average > threshold) {
+                    // User is speaking - debug log to confirm detection
+                    console.log("User speaking detected, audio level:", average);
+                    setUserIsSpeaking(true);
+                    
+                    // Clear any existing timeout
+                    if (userSpeakingTimeoutRef.current) {
+                        clearTimeout(userSpeakingTimeoutRef.current);
+                    }
+                    
+                    // Set a timeout to consider them done speaking if no audio is detected
+                    userSpeakingTimeoutRef.current = setTimeout(() => {
+                        setUserIsSpeaking(false);
+                        console.log("User speaking timeout - stopped speaking");
+                    }, 500);
+                }
+                
+                // Continue monitoring
+                requestAnimationFrame(checkAudioLevel);
+            };
+            
+            // Start monitoring
+            console.log("Microphone monitoring started");
+            requestAnimationFrame(checkAudioLevel); // Ensure we call this on animation frame
+            
+            return () => {
+                // Cleanup function
+                console.log("Cleaning up microphone monitoring");
+                if (microphoneStreamRef.current) {
+                    microphoneStreamRef.current.getTracks().forEach(track => track.stop());
+                }
+                if (audioContextRef.current) {
+                    audioContextRef.current.close();
+                }
+                if (userSpeakingTimeoutRef.current) {
+                    clearTimeout(userSpeakingTimeoutRef.current);
+                }
+            };
+        } catch (error) {
+            console.error("Error setting up microphone monitoring:", error);
+            return () => {};
+        }
+    }, [callStatus, setUserIsSpeaking]);
     const [lastMessage, setLastMessage] = useState<string>('');
     // Always have an interviewId for recording/analysis
     const [interviewId] = useState<string>(
@@ -82,9 +179,57 @@ const Agent = ({
     }, [userId, interviewId, type, questions, interviewRole, interviewLevel, company]);
 
     useEffect(() => {
+        // Function to save completed interview
+        const saveCompletedInterview = async () => {
+            // Only save custom or regular interviews, not question generation
+            if (type !== 'custom' && type !== 'interview') return;
+            
+            try {
+                // Debug info before saving
+                console.log(`Saving interview with company: "${company}"`);
+                if (company?.toLowerCase() === 'meta') {
+                    console.log('Meta company detected - should use Facebook logo');
+                }
+                
+                // Prepare payload with care for Meta company name
+                const payload = {
+                    interviewId,
+                    role: jobTitle || interviewRole || 'Interview',
+                    type: type === 'custom' ? 'Custom' : 'Preset',
+                    company: company || 'Not specified',
+                    techstack: [], // Could be extracted from conversation in future
+                    level: interviewLevel || 'Not specified',
+                };
+                
+                console.log('Save interview payload:', payload);
+                
+                // Make the API call
+                const response = await fetch('/api/save-completed-interview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log('Interview saved successfully:', data.interview);
+                } else {
+                    console.error('Failed to save interview:', data.error);
+                }
+            } catch (error) {
+                console.error('Error saving completed interview:', error);
+            }
+        };
+        
         const handleCallStart = async () => {
             console.log("🟢 Call started!");
             setCallStatus(CallStatus.ACTIVE);
+            
+            // Reset speaking states at start
+            setIsSpeaking(false);
+            setUserIsSpeaking(false);
             
             // Start encrypted recording if we have an interview ID
             if (interviewId && userId) {
@@ -96,20 +241,57 @@ const Agent = ({
                     console.error("Failed to start encrypted recording:", error);
                 }
             }
+            
+            // Start monitoring user's microphone for speech detection
+            console.log("Starting microphone monitoring...");
+            try {
+                const micCleanup = await setupMicrophoneMonitoring();
+                const existingCleanup = cleanupRecordingRef.current;
+                if (existingCleanup) {
+                    cleanupRecordingRef.current = () => {
+                        existingCleanup();
+                        micCleanup();
+                    };
+                } else {
+                    cleanupRecordingRef.current = micCleanup;
+                }
+                console.log("Microphone monitoring setup complete");
+            } catch (err) {
+                console.error("Error setting up microphone monitoring:", err);
+            }
         };
         
         const handleCallEnd = () => {
             setCallStatus(CallStatus.FINISHED);
             
-            // Stop encrypted recording
+            // Reset speaking states
+            setIsSpeaking(false);
+            setUserIsSpeaking(false);
+            
+            // Stop encrypted recording and microphone monitoring
             if (cleanupRecordingRef.current) {
                 cleanupRecordingRef.current();
                 cleanupRecordingRef.current = null;
-                console.log("Encrypted recording stopped");
+                console.log("Encrypted recording and monitoring stopped");
             }
             
-            // If this is an interview or custom, redirect to analysis after a delay
+            // Explicitly stop any microphone tracks
+            if (microphoneStreamRef.current) {
+                microphoneStreamRef.current.getTracks().forEach(track => track.stop());
+                microphoneStreamRef.current = null;
+            }
+            
+            // Clear any pending timeout
+            if (userSpeakingTimeoutRef.current) {
+                clearTimeout(userSpeakingTimeoutRef.current);
+                userSpeakingTimeoutRef.current = null;
+            }
+            
+            // Save completed interview information
             if ((type === 'interview' || type === 'custom') && interviewId) {
+                saveCompletedInterview();
+                
+                // Redirect to analysis after a delay
                 setTimeout(() => {
                     router.push(`/interview-analysis?id=${interviewId}`);
                 }, 2000);
@@ -181,8 +363,16 @@ const Agent = ({
             }
         };
 
-        const handleSpeechStart = () => setIsSpeaking(true);
-        const handleSpeechEnd = () => setIsSpeaking(false);
+        const handleSpeechStart = () => {
+            console.log("AI speech started");
+            setIsSpeaking(true);
+        };
+        
+        const handleSpeechEnd = () => {
+            console.log("AI speech ended");
+            setIsSpeaking(false);
+        };
+        
         const handleError = (error: unknown) => {
             console.error("Vapi error:", error);
             if (error instanceof Error) {
@@ -218,7 +408,7 @@ const Agent = ({
                 cleanupRecordingRef.current = null;
             }
         };
-    }, [interviewId, userId, type, router, company, interviewLevel, interviewRole, messages.length, questions?.length]);
+    }, [interviewId, userId, type, router, company, interviewLevel, interviewRole, jobTitle, messages.length, questions?.length, setupMicrophoneMonitoring]);
     
     // Helper function to prepare variable values for VAPI
     const prepareVariableValues = () => {
@@ -268,6 +458,8 @@ const Agent = ({
         console.log("Prepared variable values:", variables);
         return variables;
     };
+    
+    // Helper function to start a Vapi call with proper configuration
     
     // Helper function to start a Vapi call with proper configuration
     const startVapiCall = async (): Promise<boolean> => {
@@ -374,79 +566,80 @@ const Agent = ({
         }
     };
     
+
+    
     // Check if we have preset questions to display
     const hasPresetQuestions = questions && questions.length > 0;
 
     return (
         <>
             <div className='call-view'>
-                <div className='card-interviewer'>
-                    <div className='avatar'>
+                <div className='card-interviewer hover-card'>
+                    <div className={`avatar ${isSpeaking ? 'speaking' : ''}`}>
                         <Image 
                             src='/ai-avatar.png' 
                             alt='AI Interviewer' 
-                            width={65} 
-                            height={54} 
+                            width={90} 
+                            height={75} 
                             className='object-cover' 
                         />
-                        {isSpeaking && <span className='animate-speak'/>}
+                        <span className='animate-speak'/>
                     </div>
                     <h3>AI Interviewer</h3>
                     {type === 'interview' && company && (
-                        <p className='text-sm text-gray-600'>{company}</p>
+                        <p className='text-base text-gray-300 font-medium'>{company}</p>
                     )}
+                    {/* Debug indicator */}
+                    {isSpeaking && <p className="text-xs text-green-400">Speaking</p>}
                 </div>
-                <div className='card-border'>
+                <div className='card-border hover-card'>
                     <div className='card-content'>
-                        <Image 
-                            src='/user-avatar.png' 
-                            alt='user' 
-                            width={540} 
-                            height={540} 
-                            className='rounded-full object-cover size-[120px]' 
-                        />
+                        <div className={`avatar ${userIsSpeaking ? 'speaking' : ''}`}>
+                            <Image 
+                                src='/user-avatar.png' 
+                                alt='user' 
+                                width={540} 
+                                height={540} 
+                                className='rounded-full object-cover size-[160px]' 
+                            />
+                            <span className='animate-speak'/>
+                        </div>
                         <h3>Candidate</h3>
                         {type === 'interview' && interviewRole && (
-                            <p className='text-sm text-gray-600'>
+                            <p className='text-base text-gray-300 font-medium'>
                                 {interviewLevel} {interviewRole}
                             </p>
                         )}
+                        {/* Debug indicator */}
+                        {userIsSpeaking && <p className="text-xs text-green-400">Speaking</p>}
                     </div>
                 </div>
             </div>
             
             {/* Display preset questions if available */}
             {hasPresetQuestions && (
-                <div className='mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100'>
-                    <h4 className='text-lg font-medium mb-2'>Interview Questions:</h4>
-                    <p className='text-xs text-gray-500 mb-2'>
-                        The AI interviewer will use these questions as a guide for the interview.
-                    </p>
-                    <ol className='list-decimal ml-5 space-y-1'>
+                <div className='mt-16 mb-8 p-6 bg-blue-900/20 rounded-xl border border-blue-600/30 shadow-inner'>
+                    <h4 className='text-lg font-medium mb-3 text-blue-200'>Interview Questions:</h4>
+                    <ol className='list-decimal ml-5 space-y-4'>
                         {questions.map((question, index) => (
-                            <li key={index} className='text-sm text-gray-700'>{question}</li>
+                            <li key={index} className='text-sm text-blue-100 pb-2 border-b border-blue-700/30 last:border-0'>{question}</li>
                         ))}
                     </ol>
-                    <p className='mt-3 text-xs text-blue-600 italic'>
-                        This interview uses a structured conversation flow for a realistic experience.
+                </div>
+            )}
+            
+            <div className='transcript-border'>
+                <div className='transcript min-h-16 text-base'>
+                    <p className={cn('transition-opacity duration-500', messages.length > 0 ? 'animate-fadeIn opacity-100' : 'text-gray-500')}>
+                        {messages.length > 0 ? lastMessage : 'Interview transcript will appear here...'}
                     </p>
                 </div>
-            )}
+            </div>
             
-            {messages.length > 0 && (
-                <div className='transcript-border'>
-                    <div className='transcript'>
-                        <p className={cn('transition-opacity duration-500', 'animate-fadeIn opacity-100')}>
-                            {lastMessage}
-                        </p>
-                    </div>
-                </div>
-            )}
-            
-            <div className='w-full flex justify-center'>
+            <div className='w-full flex justify-center mt-6'>
                 {callStatus !== CallStatus.ACTIVE ? (
                     <button 
-                        className='relative btn-call'
+                        className='relative btn-call text-lg px-8 py-4'
                         onClick={handleStartCall}
                         disabled={callStatus === CallStatus.CONNECTING}
                     >
@@ -462,7 +655,7 @@ const Agent = ({
                     </button>
                 ) : (
                     <button 
-                        className='btn-disconnect'
+                        className='btn-disconnect text-lg px-8 py-4'
                         onClick={handleEndCall}
                     >
                         END INTERVIEW

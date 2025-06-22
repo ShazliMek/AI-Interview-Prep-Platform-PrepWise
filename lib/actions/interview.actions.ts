@@ -38,3 +38,19 @@ export async function getAnalysisForRecording(recordingId: string, interviewId: 
 
   return analysis;
 }
+
+export async function getCompletedInterviews() {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  const db = await connectToDatabase();
+  const interviews = await db.collection('completed_interviews')
+    .find({ userId: user.id })
+    .sort({ createdAt: -1 }) // Most recent first
+    .limit(10)
+    .toArray();
+  
+  return interviews;
+}

@@ -21,19 +21,12 @@ const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) 
   // If this is a custom interview (no presetId), show the custom agent
   if (isCustomInterview(searchParams)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6">
-        <div className="max-w-4xl w-full text-center">
-          <h1 className="text-4xl font-bold mb-2">Custom Interview</h1>
-          <p className="text-lg text-gray-600 mb-3">Practice for any role, company, or tech stack!</p>
-          <div className="bg-blue-50 p-4 rounded-lg mb-6 text-left">
-            <h3 className="text-lg font-semibold mb-2">How it works</h3>
-            <p className="text-sm text-gray-700 mb-2">
-              The AI interviewer will first ask you for the company, role, tech stack, and experience level. Then it will conduct a realistic interview based on your answers.
-            </p>
-            <p className="text-sm text-gray-700">
-              Click the &quot;Call&quot; button below to start your custom interview.
-            </p>
-          </div>
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 pt-4">
+        <div className="max-w-6xl w-full">
+          <h1 className="text-4xl font-bold mb-2 text-center custom-interview-title">Custom Interview</h1>
+          <p className="text-lg mb-4 max-w-2xl mx-auto text-center custom-interview-description">
+            The AI interviewer will first ask you for the company, role, tech stack, and experience level. Then it will conduct a realistic interview based on your answers.
+          </p>
           <Agent 
             userId={user?.id} 
             type='custom' // Custom type triggers the new agent logic
@@ -58,13 +51,13 @@ const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) 
             <h1 className="text-4xl font-bold mb-2">{presetInterview.role} Interview</h1>
             <p className="text-lg text-gray-600 mb-3">Company: {presetInterview.company}</p>
             
-            <div className="bg-blue-50 p-4 rounded-lg mb-6 text-left">
-              <h3 className="text-lg font-semibold mb-2">About This Interview</h3>
-              <p className="text-sm text-gray-700 mb-2">
+            <div className="bg-black p-4 rounded-lg mb-6 text-left shadow-md">
+              <h3 className="text-lg font-semibold mb-2 text-white">About This Interview</h3>
+              <p className="text-sm text-white mb-2">
                 This is a preset interview for a {presetInterview.role} position at {presetInterview.company}. 
                 The AI interviewer will guide you through a structured interview experience.
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-white">
                 Click the &quot;Call&quot; button below to start your interview. The system uses a conversation 
                 workflow that follows a natural interview format and will include the preset questions.
               </p>

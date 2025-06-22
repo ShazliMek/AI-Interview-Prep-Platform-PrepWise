@@ -3,26 +3,33 @@
 import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import DisplayTechIcons from './DisplayTechIcons';
 import { type PresetInterview } from '@/constants/presets';
 import Link from 'next/link';
 
 const PresetInterviewCard = ({ interview }: { interview: PresetInterview }) => {
-
-// Use Link component instead of JavaScript navigation
-
   return (
     <Card className="w-full max-w-sm rounded-xl border-2 border-gray-800 bg-gray-900 text-white shadow-lg transition-all hover:border-blue-500/50">
-      <CardHeader className="flex flex-row items-start justify-between p-4">
+      <CardHeader className="flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center space-y-2">
-          <Image src={interview.companyLogo} alt={`${interview.company} logo`} width={50} height={50} className="rounded-full" />
+          <Image 
+            src={interview.companyLogo} 
+            alt={`${interview.company} logo`} 
+            width={50} 
+            height={50} 
+            className="rounded-full"
+            onError={(e) => {
+              const imgElement = e.currentTarget as HTMLImageElement;
+              imgElement.src = '/default-avatar.png';
+            }}
+          />
           <p className="text-sm font-medium text-gray-400">{interview.company}</p>
         </div>
-        <Badge variant="outline" className="border-blue-500/50 bg-blue-900/30 text-blue-300">{interview.type}</Badge>
       </CardHeader>
       <CardContent className="p-4">
-        <CardTitle className="mb-2 text-xl font-bold">{interview.role} Interview</CardTitle>
+        <CardTitle className="mb-2 text-xl font-bold">
+          {interview.role} Interview
+        </CardTitle>
         <p className="mb-4 text-sm text-gray-400 line-clamp-2">{interview.description}</p>
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center space-x-2">

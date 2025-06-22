@@ -49,12 +49,15 @@ export interface InterviewCardProps {
 }
 
 export interface AgentProps {
-  userName: string;
+  userName?: string; // Made optional as we're transitioning away from it
   userId?: string;
   interviewId?: string;
   feedbackId?: string;
   type: "generate" | "interview";
   questions?: string[];
+  interviewRole?: string;
+  interviewLevel?: string;
+  company?: string;
 }
 
 export interface RouteParams {

@@ -4,10 +4,9 @@ import React from 'react'
 import { Button } from "@/components/ui/button";
 import Link from 'next/link'
 import Image from 'next/image';
-import { dummyInterviews } from '@/constants';
-import InterviewCard from '@/components/InterviewCard';
 import { presetInterviews } from '@/constants/presets';
 import PresetInterviewCard from '@/components/PresetInterviewCard';
+import CompletedInterviews from '@/components/CompletedInterviews';
 
 const page = () => {
 
@@ -35,10 +34,13 @@ const page = () => {
       <Image src="/robot.png" alt="robo_dude" width={400} height={400} className='max-sm:hidden'/>
     </section>
     <section className='flex flex-col gap-6 mt-8'>
-      <h2>Your Interview</h2>
-      <div className='interviews-section'>
-        {dummyInterviews.map((interview) => (<InterviewCard {...interview} key = {interview.id}/>))}
+      <div className="flex justify-between items-center">
+        <h2>Your Interviews</h2>
+        <Button asChild variant="outline">
+          <Link href="/my-interviews">View All My Interviews</Link>
+        </Button>
       </div>
+      <CompletedInterviews />
     </section>
 
     <section className='flex flex-col gap-6 mt-8'>
@@ -48,9 +50,15 @@ const page = () => {
                 <Link href="/preset-interviews">View All Preset Interviews</Link>
             </Button>
         </div>
-      <div className='interviews-section'>
-        {presetInterviews.slice(0, 3).map((interview) => (<PresetInterviewCard interview={interview} key = {interview.id}/>))} 
-      </div>
+        <div className='interview-scroll-container'>
+          <div className='interview-scroll-wrapper'>
+            {presetInterviews.slice(0, 8).map((interview) => (
+              <div className="interview-card-container" key={interview.id}>
+                <PresetInterviewCard interview={interview} />
+              </div>
+            ))}
+          </div>
+        </div>
     </section>
     </>
   )
