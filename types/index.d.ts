@@ -24,6 +24,7 @@ export interface Interview {
   type: string;
   finalized: boolean;
   isPreset?: boolean;
+  duration?: number; // Duration in seconds
 }
 
 export interface CreateFeedbackParams {
@@ -46,6 +47,7 @@ export interface InterviewCardProps {
   type: string;
   techstack: string[];
   createdAt?: string;
+  duration?: number; // Duration in seconds
 }
 
 export interface AgentProps {

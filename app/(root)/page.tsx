@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { presetInterviews } from '@/constants/presets';
 import PresetInterviewCard from '@/components/PresetInterviewCard';
 import CompletedInterviews from '@/components/CompletedInterviews';
+import './interview/interview-scroll.css';
 
 const page = () => {
 

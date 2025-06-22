@@ -9,11 +9,11 @@ interface PageProps {
 
 const InterviewPage = async ({ params }: PageProps) => {
   const user = await getCurrentUser();
-  const { id } = await params;
-
   if (!user) {
+    // Redirect to sign-in page if user is not authenticated
     redirect('/sign-in');
   }
+  const { id } = await params;
 
   // Treat the [id] param as the job title for custom interviews
   const jobTitle = id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); // e.g. 'software-engineer' -> 'Software Engineer'

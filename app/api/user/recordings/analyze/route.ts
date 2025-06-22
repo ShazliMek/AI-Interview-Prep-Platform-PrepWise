@@ -38,15 +38,13 @@ export async function POST(request: Request) {
 
       console.log(`[Analysis API] Retrieved recording: ${buffer.length} bytes`);
       
-      // Create FormData to send to Python backend
-      const formData = new FormData();
-      const audioBlob = new Blob([buffer], { type: metadata.metadata.mimeType || 'audio/webm' });
-      formData.append('audio_file', audioBlob, `recording-${recordingId}.wav`);
-      
-      // Send to Python analysis backend
-      const analysisResponse = await fetch('http://127.0.0.1:8000/analyze-interview-response/', {
+      // Send to Python analysis backend with a JSON payload
+      const analysisResponse = await fetch('http://127.0.0.1:8000/analyze-audio/', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ audio_url: metadata.recordingUrl }),
       });
       
       if (!analysisResponse.ok) {

@@ -1,5 +1,6 @@
 //import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 //import { z } from "zod";
+import { Interview } from '@/types';
 
 export const mappings = {
   "react.js": "react",
@@ -215,6 +216,7 @@ export const dummyInterviews: Interview[] = [
     questions: ["What is React?"],
     finalized: false,
     createdAt: "2024-03-15T10:00:00Z",
+    duration: 325, // 5 minutes and 25 seconds
   },
   {
     id: "2",
@@ -226,5 +228,6 @@ export const dummyInterviews: Interview[] = [
     questions: ["What is Node.js?"],
     finalized: false,
     createdAt: "2024-03-14T15:30:00Z",
+    duration: 480, // 8 minutes
   },
 ];

@@ -1,7 +1,14 @@
 // Voice data storage and encryption service - MongoDB version
 
 import { connectToMongoDB } from '@/lib/mongodb';
-import { VoiceRecording, EncryptionKey, VoiceAnalysis, IVoiceRecording, IEncryptionKey } from '@/lib/models/mongodb-schemas';
+import { 
+  VoiceRecording, 
+  EncryptionKey, 
+  VoiceAnalysis, 
+  IVoiceRecording, 
+  IEncryptionKey,
+  InterviewAnalysis 
+} from '@/lib/models/mongodb-schemas';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -81,6 +88,7 @@ export const voiceDataServiceMongoDB = {
         recordingUrl: fileUrl,
         encryptionKeyId: keyId,
         processingStatus: 'pending',
+        rec_length: metadata.duration || 0,
         createdAt: now,
         expiresAt: expiresAt,
         metadata: {
@@ -97,6 +105,118 @@ export const voiceDataServiceMongoDB = {
     } catch (error) {
       console.error('[MongoDB Voice Service] Error storing voice recording:', error);
       throw new Error('Failed to store voice recording');
+    }
+  },
+
+  /**
+   * Store a voice recording from a server-side URL (e.g., Vapi)
+   */
+  async storeVoiceRecordingFromUrl(
+    { userId, interviewId, recordingUrl, duration, interviewRole, interviewType }: { userId: string; interviewId: string; recordingUrl: string; duration: number; interviewRole?: string; interviewType?: 'preset' | 'custom' }
+  ): Promise<string> {
+    try {
+      await connectToMongoDB();
+
+      // Prepare the update payload safely to avoid lint errors.
+      const setData: { [key: string]: any } = {
+        recordingUrl: recordingUrl,
+        'metadata.storageType': 'vapi',
+      };
+
+      // Add duration if it's a valid number
+      if (typeof duration === 'number' && !isNaN(duration)) {
+        setData['metadata.duration'] = duration;
+        setData['rec_length'] = duration;
+      }
+
+      if (interviewRole) {
+        setData['interviewRole'] = interviewRole;
+      }
+
+      if (interviewType) {
+        setData['interviewType'] = interviewType;
+      }
+
+      const update = {
+        $set: setData,
+        $setOnInsert: {
+          userId: userId,
+          interviewId: interviewId,
+          createdAt: new Date(),
+          expiresAt: new Date(new Date().getTime() + RECORDING_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+          processingStatus: 'pending',
+          'metadata.mimeType': 'audio/mp3',
+        }
+      };
+
+      const savedRecording = await VoiceRecording.findOneAndUpdate(
+        { interviewId: interviewId, userId: userId },
+        update,
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      if (!savedRecording) {
+        throw new Error(`Upsert failed for interviewId: ${interviewId}.`);
+      }
+
+      console.log(`[MongoDB Voice Service] Successfully stored recording URL and metadata for interviewId: ${interviewId}`);
+      return savedRecording._id.toString();
+    } catch (error) {
+      console.error('[MongoDB Voice Service] Error storing voice recording from URL:', error);
+      throw new Error('Failed to store voice recording from URL');
+    }
+  },
+
+  /**
+   * Creates or updates an interview record with metadata from the frontend.
+   * Uses upsert to prevent race conditions with the Vapi webhook.
+   */
+  async saveInterviewMetadata(details: {
+    interviewId: string;
+    userId: string;
+    duration: number;
+    role: string;
+    type: string;
+    company: string;
+    level: string;
+  }): Promise<boolean> {
+    try {
+      await connectToMongoDB();
+
+      const { interviewId, userId, duration, role, type, company, level } = details;
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + RECORDING_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+      const updateData = {
+        $set: {
+          rec_length: duration,
+          userId: userId,
+          interviewId: interviewId,
+          'metadata.role': role,
+          'metadata.type': type,
+          'metadata.company': company,
+          'metadata.level': level,
+          'metadata.duration': duration,
+        },
+        $setOnInsert: {
+          createdAt: now,
+          expiresAt: expiresAt,
+          processingStatus: 'pending',
+        }
+      };
+
+      const result = await VoiceRecording.findOneAndUpdate(
+        { interviewId: interviewId, userId: userId },
+        updateData,
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      console.log(`[MongoDB Voice Service] Upserted interview metadata for ${interviewId}`);
+      return !!result;
+    } catch (error) {
+      console.error(`[MongoDB Voice Service] Error saving interview metadata for ${details.interviewId}:`, error);
+      return false;
     }
   },
   
@@ -187,8 +307,8 @@ export const voiceDataServiceMongoDB = {
     try {
       await connectToMongoDB();
       
-      // Ensure duration is an integer
-      const integerDuration = Math.floor(duration);
+      // Ensure duration is an integer and at least 1 second
+      const integerDuration = Math.max(1, Math.floor(duration));
       console.log(`[MongoDB Voice Service] Updating recording duration for interview: ${interviewId}, duration: ${integerDuration}s (integer)`);
       
       // Build query - include userId if provided for additional security
@@ -198,10 +318,28 @@ export const voiceDataServiceMongoDB = {
         console.log(`[MongoDB Voice Service] Including userId in query for additional security: ${userId}`);
       }
       
+      // First update the recording document
       const result = await VoiceRecording.updateOne(
         query,
-        { $set: { rec_length: integerDuration } }
+        { 
+          $set: { 
+            rec_length: integerDuration,
+            'metadata.duration': integerDuration 
+          } 
+        }
       );
+      
+      // Also update any existing analysis records with the duration
+      try {
+        await InterviewAnalysis.updateMany(
+          { interviewId },
+          { $set: { 'analysis.duration_seconds': integerDuration } }
+        );
+        console.log(`[MongoDB Voice Service] ✅ Updated duration in analysis records for interview: ${interviewId}`);
+      } catch (analysisError) {
+        console.warn(`[MongoDB Voice Service] ⚠️ Could not update analysis records:`, analysisError);
+        // Continue even if analysis update fails
+      }
       
       if (result.matchedCount > 0) {
         console.log(`[MongoDB Voice Service] ✅ Successfully updated duration for interview: ${interviewId}`);
