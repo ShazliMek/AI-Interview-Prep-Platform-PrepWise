@@ -1,6 +1,7 @@
 import Agent from '@/components/Agent';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { getPresetInterviewById } from '@/constants/presets';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import React from 'react';
 
@@ -55,13 +56,13 @@ const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) 
             <h1 className="text-4xl font-bold mb-2">{presetInterview.role} Interview</h1>
             <p className="text-lg text-gray-600 mb-3">Company: {presetInterview.company}</p>
             
-            <div className="bg-blue-50 p-4 rounded-lg mb-6 text-left">
-              <h3 className="text-lg font-semibold mb-2">About This Interview</h3>
-              <p className="text-sm text-gray-700 mb-2">
+            <div className="bg-black p-4 rounded-lg mb-6 text-left shadow-md">
+              <h3 className="text-lg font-semibold mb-2 text-white">About This Interview</h3>
+              <p className="text-sm text-white mb-2">
                 This is a preset interview for a {presetInterview.role} position at {presetInterview.company}. 
                 The AI interviewer will guide you through a structured interview experience.
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-white">
                 Click the &quot;Call&quot; button below to start your interview. The system uses a conversation 
                 workflow that follows a natural interview format and will include the preset questions.
               </p>

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { vapi, VapiAssistantOverrides } from "@/lib/vapi.sdk";
@@ -53,6 +54,7 @@ const Agent = ({
     const router = useRouter();
     const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [userIsSpeaking, setUserIsSpeaking] = useState(false);
     const [messages, setMessages] = useState<SavedMessage[]>([]);
     const [lastMessage, setLastMessage] = useState<string>('');
     const [interviewId] = useState<string>(
@@ -263,18 +265,50 @@ const Agent = ({
     return (
         <>
             <div className='call-view'>
+                <div className='card-interviewer hover-card'>
+                    <div className={`avatar ${isSpeaking ? 'speaking' : ''}`}>
+                        <Image 
+                            src='/ai-avatar.png' 
+                            alt='AI Interviewer' 
+                            width={90} 
+                            height={75} 
+                            className='object-cover' 
+                        />
+                        <span className='animate-speak'/>
                 <div className='card-interviewer'>
                     <div className='avatar'>
                         <Image src='/ai-avatar.png' alt='AI Interviewer' width={65} height={54} className='object-cover' />
                         {isSpeaking && <span className='animate-speak'/>}
                     </div>
                     <h3>AI Interviewer</h3>
+                    {type === 'interview' && company && (
+                        <p className='text-base text-gray-300 font-medium'>{company}</p>
+                    )}
+                    {/* Debug indicator */}
+                    {isSpeaking && <p className="text-xs text-green-400">Speaking</p>}
                     {type === 'interview' && company && <p className='text-sm text-gray-600'>{company}</p>}
                 </div>
-                <div className='card-border'>
+                <div className='card-border hover-card'>
                     <div className='card-content'>
+                        <div className={`avatar ${userIsSpeaking ? 'speaking' : ''}`}>
+                            <Image 
+                                src='/user-avatar.png' 
+                                alt='user' 
+                                width={540} 
+                                height={540} 
+                                className='rounded-full object-cover size-[160px]' 
+                            />
+                            <span className='animate-speak'/>
+                        </div>
                         <Image src='/user-avatar.png' alt='user' width={540} height={540} className='rounded-full object-cover size-[120px]' />
                         <h3>Candidate</h3>
+                        {type === 'interview' && interviewRole && (
+                            <p className='text-base text-gray-300 font-medium'>
+                                {interviewLevel} {interviewRole}
+                            </p>
+                        )}
+                        {/* Debug indicator */}
+                        {userIsSpeaking && <p className="text-xs text-green-400">Speaking</p>}
                         {type === 'interview' && interviewRole && <p className='text-sm text-gray-600'>{interviewLevel} {interviewRole}</p>}
                     </div>
                 </div>
@@ -291,11 +325,19 @@ const Agent = ({
                     <h4 className='text-lg font-medium mb-2'>Interview Questions:</h4>
                     <ol className='list-decimal ml-5 space-y-1'>
                         {questions.map((question, index) => (
-                            <li key={index} className='text-sm text-gray-700'>{question}</li>
+                            <li key={index} className='text-sm text-blue-100 pb-2 border-b border-blue-700/30 last:border-0'>{question}</li>
                         ))}
                     </ol>
                 </div>
             )}
+            
+            <div className='transcript-border'>
+                <div className='transcript min-h-16 text-base'>
+                    <p className={cn('transition-opacity duration-500', messages.length > 0 ? 'animate-fadeIn opacity-100' : 'text-gray-500')}>
+                        {messages.length > 0 ? lastMessage : 'Interview transcript will appear here...'}
+                    </p>
+                </div>
+            </div>
 
             {messages.length > 0 && (
                 <div className='transcript-border'>
@@ -305,10 +347,10 @@ const Agent = ({
                 </div>
             )}
             
-            <div className='w-full flex justify-center'>
+            <div className='w-full flex justify-center mt-6'>
                 {callStatus !== CallStatus.ACTIVE ? (
                     <button 
-                        className='relative btn-call'
+                        className='relative btn-call text-lg px-8 py-4'
                         onClick={handleStartCall}
                         disabled={callStatus === CallStatus.CONNECTING}
                     >
@@ -324,7 +366,7 @@ const Agent = ({
                     </button>
                 ) : (
                     <button 
-                        className='btn-disconnect'
+                        className='btn-disconnect text-lg px-8 py-4'
                         onClick={handleEndCall}
                     >
                         END INTERVIEW

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import AnalysisReportCard from '@/components/AnalysisReportCard';
+import { Badge } from "@/components/ui/badge";
+import { Play, Pause, Trash2, BarChart2, Loader2, Star } from "lucide-react";
 
 interface Recording {
   id: string;
@@ -366,9 +368,9 @@ export default function MyInterviews({ onBack }: MyInterviewsProps) {
   };
 
   const handleDelete = async (recordingId: string) => {
-    if (!confirm('Are you sure you want to delete this recording? This action cannot be undone.')) {
-      return;
-    }
+    // if (!confirm('Are you sure you want to delete this recording? This action cannot be undone.')) {
+    //   return;
+    // }
     
     try {
       const response = await fetch('/api/user/recordings', {
@@ -461,140 +463,142 @@ export default function MyInterviews({ onBack }: MyInterviewsProps) {
         </Card>
       ) : (
         <div className="grid gap-6">
-          {recordings.map((recording) => (
-            <Card key={recording.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle>Interview: {recording.interviewId}</CardTitle>
-                    <CardDescription>
-                      {formatDate(recording.createdAt)}
-                    </CardDescription>
+          {recordings.map((recording) => {
+            const audioState = audioStates[recording.id] || { isPlaying: false, currentTime: 0, duration: 0, isLoading: false };
+            const isAnalyzed = analyzedRecordings.has(recording.id);
+            const analysisResult = analysisResults[recording.id];
+
+            return (
+              <Card key={recording.id} className="w-full rounded-2xl border border-gray-700/50 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white shadow-2xl transition-all duration-300 hover:border-blue-400/40 hover:shadow-blue-500/10 backdrop-blur-sm">
+                <CardHeader className="relative p-6 pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-gray-700/50 bg-gray-800 flex items-center justify-center">
+                        <BarChart2 className="h-6 w-6 text-gray-400" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-bold text-white">
+                          Interview Practice
+                        </CardTitle>
+                        <CardDescription className="text-sm text-gray-400">
+                          {new Date(recording.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="border-blue-500/50 bg-blue-900/30 text-blue-300">Completed</Badge>
                   </div>
-                  <CardAction>
-                    <span className="text-sm text-gray-500">
-                      {formatTime(audioStates[recording.id]?.duration || recording.metadata.duration)}
-                    </span>
-                  </CardAction>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Playback Controls */}
+                </CardHeader>
+
+                <CardContent className="px-6 pb-4">
                   <div className="flex items-center space-x-4">
                     <Button
-                      variant={audioStates[recording.id]?.isPlaying ? "default" : "outline"}
-                      size="sm"
+                      variant="outline"
+                      size="icon"
                       onClick={() => handlePlay(recording.id)}
-                      disabled={audioStates[recording.id]?.isLoading}
-                      className="min-w-[90px]"
+                      disabled={audioState.isLoading}
+                      className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 border-none text-white flex-shrink-0 transition-all transform hover:scale-110 flex items-center justify-center"
                     >
-                      {audioStates[recording.id]?.isLoading ? (
-                        <div className="flex items-center space-x-1">
-                          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                          <span>Loading</span>
-                        </div>
-                      ) : audioStates[recording.id]?.isPlaying ? (
-                        '⏸️ Pause'
+                      {audioState.isLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : audioState.isPlaying ? (
+                        <Pause className="h-5 w-5" />
                       ) : (
-                        '▶️ Play'
+                        <Play className="h-5 w-5" />
                       )}
                     </Button>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2 text-xs text-gray-500">
-                      <span className="w-8 text-right">
-                        {formatTime(audioStates[recording.id]?.currentTime || 0)}
-                      </span>
-                      <div className="flex-1">
-                        <Slider
-                          value={[audioStates[recording.id]?.currentTime || 0]}
-                          max={audioStates[recording.id]?.duration || recording.metadata.duration || 1}
-                          step={0.1}
-                          onValueChange={(value) => handleSeek(recording.id, value[0])}
-                          className="w-full"
-                        />
+                    <div className="flex-1 space-y-1.5">
+                      <Slider
+                        value={[audioState.currentTime]}
+                        max={audioState.duration || recording.metadata.duration || 1}
+                        step={0.1}
+                        onValueChange={(value) => handleSeek(recording.id, value[0])}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>{formatTime(audioState.currentTime)}</span>
+                        <span>{formatTime(audioState.duration || recording.metadata.duration)}</span>
                       </div>
-                      <span className="w-8 text-left">
-                        {formatTime(audioStates[recording.id]?.duration || recording.metadata.duration)}
-                      </span>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-              
-              <CardFooter className="justify-between">
-                <div className="flex space-x-2">
-                  {analyzedRecordings.has(recording.id) ? (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          📊 View Analysis
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <div className="relative">
-                          <button
-                            onClick={() => {}}
-                            className="absolute right-0 top-0 text-gray-400 hover:text-gray-600 text-xl leading-none p-1"
-                            aria-label="Close"
-                          >
-                            ×
-                          </button>
+                </CardContent>
+
+                <CardFooter className="flex justify-between items-center px-6 pb-6">
+                  <div className="flex items-center space-x-2 text-xs">
+                    <Star size={14} className={`transition-colors ${isAnalyzed ? 'text-amber-400' : 'text-gray-600'}`} />
+                    <span className={`font-medium transition-colors ${isAnalyzed ? 'text-white' : 'text-gray-500'}`}>
+                      {isAnalyzed ? 'Analysis Ready' : 'Not Analyzed'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {isAnalyzed ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" className="bg-gradient-to-r from-green-500 to-green-400 hover:from-green-600 hover:to-green-500 text-white transition-all duration-200 px-3 py-2 text-sm font-semibold rounded-lg shadow-lg hover:shadow-green-500/25 transform hover:scale-105 flex items-center space-x-2">
+                            <BarChart2 className="h-4 w-4" />
+                            <span>View</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-900 text-white border-gray-700">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Interview Analysis Report</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Detailed analysis of your interview performance
+                              Detailed analysis of your interview performance.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <div className="my-4">
-                            {analysisResults[recording.id] && (
+                            {analysisResult && (
                               <AnalysisReportCard 
-                                analysis={analysisResults[recording.id]} 
+                                analysis={analysisResult} 
                                 onEndInterview={() => {}}
                               />
                             )}
                           </div>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Close</AlertDialogCancel>
+                            <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600 border-none">Close</AlertDialogCancel>
                           </AlertDialogFooter>
-                        </div>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleAnalyze(recording.id)}
+                        disabled={analyzingId === recording.id}
+                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white transition-all duration-200 px-3 py-2 text-sm font-semibold rounded-lg shadow-lg hover:shadow-blue-500/25 transform hover:scale-105 flex items-center space-x-2"
+                      >
+                        {analyzingId === recording.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <BarChart2 className="h-4 w-4" />
+                        )}
+                        <span>{analyzingId === recording.id ? 'Analyzing...' : 'Analyze'}</span>
+                      </Button>
+                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/50 w-9 h-9 rounded-lg">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-gray-900 text-white border-gray-700">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete your interview recording and analysis. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600 border-none">Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(recording.id)} className="bg-red-600 hover:bg-red-700">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAnalyze(recording.id)}
-                      disabled={analyzingId === recording.id}
-                      className="min-w-[120px]"
-                    >
-                      {analyzingId === recording.id ? (
-                        <div className="flex items-center space-x-1">
-                          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                          <span>Analyzing</span>
-                        </div>
-                      ) : (
-                        '📊 Analyze Recording'
-                      )}
-                    </Button>
-                  )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-500 hover:text-red-600"
-                    onClick={() => handleDelete(recording.id)}
-                  >
-                    🗑️ Delete
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+                  </div>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       )}
 

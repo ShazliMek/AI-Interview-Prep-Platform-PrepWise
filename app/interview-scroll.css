@@ -1,0 +1,7 @@
+/* interview-scroll.css - minimal placeholder */
+
+.interview-scroll {
+  overflow-y: auto;
+  max-height: 80vh;
+  padding: 16px;
+}
