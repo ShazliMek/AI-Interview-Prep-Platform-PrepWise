@@ -1,75 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { voiceDataServiceMongoDB } from '@/lib/services/voiceDataServiceMongoDB';
 
-// CORS headers for allowing Vapi to access this endpoint
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
-};
-
-// OPTIONS handler for CORS preflight requests
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders
-  });
-}
 
 /**
- * API endpoint for saving interview data
- * Called by the Vapi workflow to save interview session data
+ * API endpoint to mark an interview as completed and save its final duration.
+ * This is called from the frontend when the call ends.
  */
 export async function POST(request: NextRequest) {
   try {
+
+
     const body = await request.json();
-    const { interviewData, feedback, timestamp } = body;
-    
-    // Log the incoming data
-    console.log('Save interview data request:', { interviewData, feedback, timestamp });
-    
-    // In a production environment, you would:
-    // 1. Validate the data
-    // 2. Save to database (MongoDB, Firebase, etc.)
-    // 3. Process any analytics or follow-up actions
-    
-    // For now, we'll just acknowledge receipt
-    
-    // TODO: Implement actual database storage
-    // Example with MongoDB schema:
-    /*
-    const interview = new InterviewSession({
-      company: interviewData.company,
-      jobTitle: interviewData.jobTitle,
-      experience: interviewData.experience,
-      techStack: interviewData.techStack,
-      notes: interviewData.notes,
-      questionsAsked: interviewData.questionsAsked,
-      feedback,
-      timestamp: timestamp || new Date().toISOString(),
-      userId: interviewData.userId || 'anonymous'
+    // HACKATHON FIX: Read userId from body instead of session
+    const { interviewId, duration, role, type, company, level, userId } = body;
+
+    if (!userId || !interviewId || typeof duration === 'undefined' || !role || !type || !level) {
+      return NextResponse.json({ error: 'Missing required interview metadata, including userId' }, { status: 400 });
+    }
+
+    console.log(`[API Save-Interview] Received request to save metadata for interview ${interviewId}`);
+
+    const success = await voiceDataServiceMongoDB.saveInterviewMetadata({
+      interviewId,
+      userId,
+      duration,
+      role,
+      type,
+      company: company || 'Not specified',
+      level,
     });
-    
-    await interview.save();
-    */
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Interview data received successfully',
-      savedAt: new Date().toISOString()
-    }, {
-      headers: corsHeaders
-    });
+
+    if (success) {
+      console.log(`[API Save-Interview] Successfully saved metadata for interview: ${interviewId}`);
+      return NextResponse.json({ success: true, message: 'Interview metadata saved successfully.' });
+    } else {
+      console.error(`[API Save-Interview] Failed to save metadata for interview: ${interviewId}`);
+      return NextResponse.json({ success: false, message: 'Failed to save interview metadata.' }, { status: 500 });
+    }
   } catch (error) {
-    console.error('Error saving interview data:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to save interview data' 
-      }, 
-      { 
-        status: 500,
-        headers: corsHeaders
-      }
-    );
+    console.error('[API Save-Interview] Error processing request:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ success: false, message: 'Failed to save interview completion data', error: errorMessage }, { status: 500 });
   }
 }
+
+

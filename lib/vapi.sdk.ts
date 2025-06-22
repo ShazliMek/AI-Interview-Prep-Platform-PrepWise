@@ -8,6 +8,11 @@ export interface VapiVariableValues {
 export interface VapiAssistantOverrides {
   variableValues?: VapiVariableValues;
   firstMessage?: string;
+  serverUrl?: string;
+  artifactPlan?: {
+    recordingEnabled?: boolean;
+    recordingFormat?: 'mp3' | 'wav;l16';
+  };
   // Add other override properties as needed based on VAPI docs
 }
 

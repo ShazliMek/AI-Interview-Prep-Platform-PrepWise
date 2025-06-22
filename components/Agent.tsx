@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { vapi } from "@/lib/vapi.sdk";
-import vapiEncryptionService from "@/lib/services/vapiEncryptionService";
+import { vapi, VapiAssistantOverrides } from "@/lib/vapi.sdk";
+
 import { logVapiDebug, checkVariableUsage } from "@/lib/utils/vapi-debug";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -60,7 +60,7 @@ const Agent = ({
     );
 
     // --- Merged State from both branches ---
-    const cleanupRecordingRef = useRef<(() => Promise<Blob | null>) | null>(null);
+
     const [recordingDuration, setRecordingDuration] = useState(0);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const startTimeRef = useRef<number | null>(null);
@@ -86,118 +86,89 @@ const Agent = ({
         }, 1000);
     };
 
-    const stopTimer = () => {
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-        }
-        if (startTimeRef.current) {
-            const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
-            startTimeRef.current = null;
-            return finalDuration;
-        }
-        return recordingDuration; // Fallback
-    };
-
     // Data saving utilities
-    const saveRecordingDuration = async (duration: number) => {
-        if (!interviewId || !userId) return;
-        try {
-            const response = await fetch('/api/user/recordings-mongodb/update-duration', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interviewId, userId, duration })
-            });
-            if (response.ok) console.log(`[DB] Duration saved: ${duration}s`);
-            else console.error(`[DB] Failed to save duration`);
-        } catch (error) {
-            console.error(`[DB] Error saving duration:`, error);
-        }
-    };
+    const saveCompletedInterview = useCallback(async (duration: number): Promise<boolean> => {
+        if (type !== 'custom' && type !== 'interview') return true;
 
-    const saveCompletedInterview = async () => {
-        if (type !== 'custom' && type !== 'interview') return;
+        console.log(`[Save Util] Saving interview with duration: ${duration}s`);
+
         try {
-            const response = await fetch('/api/save-completed-interview', {
+            const response = await fetch('/api/save-interview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    userId, // Pass userId directly in the body
                     interviewId,
+                    duration: duration,
                     role: jobTitle || interviewRole || 'Interview',
                     type: type === 'custom' ? 'Custom' : 'Preset',
                     company: company || 'Not specified',
-                    techstack: [],
                     level: interviewLevel || 'Not specified',
                 }),
             });
             const data = await response.json();
-            if (data.success) console.log('[DB] Interview metadata saved.');
-            else console.error('[DB] Failed to save interview metadata:', data.error);
+            if (response.ok && data.success) {
+                console.log('[DB] Interview metadata saved.');
+                return true;
+            } else {
+                console.error('[DB] Failed to save interview metadata:', data.message || data.error);
+                return false;
+            }
         } catch (error) {
             console.error('[DB] Error saving interview metadata:', error);
+            return false;
         }
-    };
+    }, [userId, interviewId, jobTitle, interviewRole, type, company, interviewLevel]);
 
     // --- Main useEffect hook with merged logic ---
     useEffect(() => {
-        const handleCallStart = async () => {
+        const handleCallStart = () => {
             console.log("🟢 Call started!");
             setCallStatus(CallStatus.ACTIVE);
             startTimer();
-            if (interviewId && userId) {
-                try {
-                    const cleanup = await vapiEncryptionService.startEncryptedRecording(interviewId);
-                    cleanupRecordingRef.current = cleanup;
-                    console.log("Encrypted recording started for interview:", interviewId);
-                } catch (error) {
-                    console.error("Failed to start encrypted recording:", error);
-                }
-            }
         };
 
         const handleCallEnd = async () => {
-            console.log(`[Call Flow] ❌ Call ended.`);
+            console.log('[FORCE UPDATE] This is the new, correct handleCallEnd function.'); // Cache-busting log
+            console.log(`[Call Flow] ❌ Call ended. Starting post-call process.`);
             setCallStatus(CallStatus.FINISHED);
             setIsProcessing(true);
             setErrorMessage('');
 
-            const finalDuration = stopTimer();
-            console.log(`[Recording] Final duration: ${finalDuration}s`);
+            console.log('[Call End] Stopping timer...');
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+            let finalDuration = recordingDuration;
+            if (startTimeRef.current) {
+                finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                setRecordingDuration(finalDuration); // Update state for UI consistency
+                startTimeRef.current = null;
+            }
+            console.log(`[Call End] Final duration calculated: ${finalDuration}s`);
 
             try {
-                let audioBlob: Blob | null = null;
-                if (cleanupRecordingRef.current) {
-                    console.log("[Recording] Stopping and retrieving audio blob...");
-                    audioBlob = await cleanupRecordingRef.current();
-                    cleanupRecordingRef.current = null;
-                }
+                console.log('[Call End] Saving completed interview metadata...');
+                const savedSuccessfully = await saveCompletedInterview(finalDuration);
 
-                if (audioBlob && (type === 'interview' || type === 'custom') && interviewId) {
-                    console.log(`[Recording] Retrieved audio blob: ${audioBlob.size} bytes`);
-                    const formData = new FormData();
-                    formData.append('audio', audioBlob);
-                    formData.append('interviewId', interviewId);
-                    formData.append('metadata', JSON.stringify({ duration: finalDuration, fileSize: audioBlob.size, mimeType: 'audio/webm' }));
-                    
-                    const response = await fetch('/api/user/recordings-mongodb', { method: 'POST', body: formData });
-                    if (!response.ok) throw new Error('Failed to save recording to database');
-                    
-                    console.log("[Recording] ✅ Recording saved successfully.");
-                    await saveRecordingDuration(finalDuration);
-                    await saveCompletedInterview();
-
-                    console.log(`[Redirect] Process complete. Redirecting to analysis page...`);
-                    router.push(`/interview-analysis?id=${interviewId}`);
+                if (savedSuccessfully) {
+                    console.log(`[Call End] Metadata saved. Preparing to redirect to /interview-analysis?interviewId=${interviewId}`);
+                    window.location.href = `/interview-analysis?interviewId=${interviewId}`; // Bypassing Next.js router
                 } else {
-                     console.warn("[Call End] No audio blob or invalid type. Redirecting to my-interviews.");
-                     router.push('/my-interviews');
+                    console.error('[Call End] Failed to save metadata. Redirecting to my-interviews.');
+                    setErrorMessage('Failed to save interview data. Redirecting to home.');
+                    router.push('/my-interviews');
                 }
-
             } catch (error) {
-                console.error(`[Call End Process] ❌ Error:`, error);
-                setErrorMessage('Error processing interview data. Redirecting...');
-                setTimeout(() => { router.push('/my-interviews'); }, 4000);
+                console.error(`[Call End] ❌ Error during post-call processing:`, error);
+                setErrorMessage('An error occurred. You will be redirected shortly.');
+                setTimeout(() => {
+                    console.log('[Call End] Fallback redirection to /my-interviews.');
+                    router.push('/my-interviews');
+                }, 4000);
             } finally {
+                console.log('[Call End] Post-call processing finished.');
                 setIsProcessing(false);
             }
         };
@@ -228,7 +199,7 @@ const Agent = ({
             vapi.off('speech-end', handleSpeechEnd);
             vapi.off('error', handleError);
         };
-    }, [interviewId, userId, type, router, company, interviewLevel, interviewRole, jobTitle, questions]);
+    }, [interviewId, router, saveCompletedInterview]);
     
     const prepareVariableValues = () => {
         const variables: Record<string, any> = {};
@@ -243,6 +214,7 @@ const Agent = ({
         if (userId) variables.userId = userId;
         if (interviewId) variables.interviewId = interviewId;
         variables.sessionType = type;
+        variables.interviewType = type;
         return variables;
     };
     
@@ -251,7 +223,14 @@ const Agent = ({
         if (!assistantId) throw new Error(`Missing VAPI assistant ID for type: ${type}`);
         
         try {
-            const assistantOverrides = { variableValues: prepareVariableValues() };
+            const assistantOverrides: VapiAssistantOverrides = {
+                variableValues: prepareVariableValues(),
+                serverUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/vapi/webhook`,
+                artifactPlan: {
+                    recordingEnabled: true,
+                    recordingFormat: 'mp3',
+                }
+            };
             console.log("Starting VAPI call with overrides:", JSON.stringify(assistantOverrides, null, 2));
             await vapi.start(assistantId, assistantOverrides);
             return true;
@@ -279,7 +258,7 @@ const Agent = ({
         }
     };
     
-    const hasPresetQuestions = questions && questions.length > 0;
+
 
     return (
         <>
@@ -307,7 +286,7 @@ const Agent = ({
                 </div>
             )}
 
-            {hasPresetQuestions && (
+            {questions && questions.length > 0 && (
                 <div className='mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100'>
                     <h4 className='text-lg font-medium mb-2'>Interview Questions:</h4>
                     <ol className='list-decimal ml-5 space-y-1'>

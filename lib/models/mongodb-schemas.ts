@@ -5,6 +5,8 @@ export interface IVoiceRecording extends Document {
   _id: string;
   userId: string;
   interviewId: string;
+  interviewType: 'preset' | 'custom';
+  interviewRole: string;
   recordingUrl: string; // Local path or cloud storage URL
   encryptionKeyId: string;
   processingStatus: 'pending' | 'processed' | 'failed';
@@ -22,11 +24,15 @@ export interface IVoiceRecording extends Document {
     transcription?: string;
     analysis?: any;
   };
+  analysisReport?: any; // To store the report from the Python backend
+  isSaved: boolean;
 }
 
 const VoiceRecordingSchema = new Schema<IVoiceRecording>({
   userId: { type: String, required: true, index: true },
   interviewId: { type: String, required: true, index: true },
+  interviewType: { type: String, required: true, enum: ['preset', 'custom'], default: 'custom' },
+  interviewRole: { type: String, required: true, default: 'Custom' },
   recordingUrl: { type: String, required: true },
   encryptionKeyId: { type: String, required: true },
   processingStatus: { 
@@ -44,6 +50,8 @@ const VoiceRecordingSchema = new Schema<IVoiceRecording>({
       message: 'rec_length must be an integer'
     }
   }, // Recording duration from visual timer (integer seconds)
+  analysisReport: { type: Schema.Types.Mixed, required: false },
+  isSaved: { type: Boolean, default: false, required: true },
   createdAt: { type: Date, default: Date.now, index: true },
   expiresAt: { type: Date, required: true, index: true },
   metadata: {

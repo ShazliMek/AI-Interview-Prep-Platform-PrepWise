@@ -4,22 +4,16 @@ import { getPresetInterviewById } from '@/constants/presets';
 import Link from 'next/link';
 import React from 'react';
 
-const isCustomInterview = (searchParams?: { presetId?: string }) => {
-  // If no presetId, or the route is for a generic interview type, treat as custom
-  if (!searchParams || !searchParams.presetId) return true;
-  // You can add more logic here if you want to distinguish further
-  return false;
-};
-
 const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) => {
   const user = await getCurrentUser();
-  let presetId: string | undefined;
-  if (searchParams) {
-    presetId = searchParams.presetId;
+  // Enforce authentication for all interview pages
+  if (!user) {
+    return redirect('/sign-in');
   }
+  const { presetId } = searchParams || {};
 
   // If this is a custom interview (no presetId), show the custom agent
-  if (isCustomInterview(searchParams)) {
+  if (!presetId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6">
         <div className="max-w-4xl w-full text-center">
@@ -34,10 +28,13 @@ const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) 
               Click the &quot;Call&quot; button below to start your custom interview.
             </p>
           </div>
-          <Agent 
-            userId={user?.id} 
-            type='custom' // Custom type triggers the new agent logic
-          />
+          {user && (
+            <Agent 
+              userId={user.id} 
+              userName={user.name || 'User'}
+              type='custom' // Custom type triggers the new agent logic
+            />
+          )}
         </div>
       </div>
     );
@@ -71,7 +68,8 @@ const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) 
             </div>
             
             <Agent 
-              userId={user?.id} 
+              userId={user.id} 
+              userName={user.name || 'User'}
               interviewId={presetInterview.id} 
               type='interview' 
               questions={presetInterview.questions}
@@ -170,7 +168,7 @@ const Page = async ({ searchParams }: { searchParams?: { presetId?: string } }) 
           <div className="p-6 border border-gray-200 rounded-lg">
             <h3 className="text-xl font-semibold mb-3">Interview Question Generator</h3>
             <p className="text-gray-600 mb-4">Get personalized interview questions without recording</p>
-            <Agent userName={user?.name || 'Guest'} userId={user?.id} type='generate'/>
+            <Agent userName={user.name || 'Guest'} userId={user.id} type='generate'/>
           </div>
         </div>
         

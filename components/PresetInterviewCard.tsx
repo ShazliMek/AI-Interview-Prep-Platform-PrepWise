@@ -42,6 +42,7 @@ const PresetInterviewCard = ({ interview }: { interview: PresetInterview }) => {
         </Link>
       </CardFooter>
     </Card>
+    
   );
 };
 
