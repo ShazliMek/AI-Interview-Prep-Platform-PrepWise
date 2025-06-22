@@ -1,8 +1,8 @@
-// File: /Users/shazlimekrani/Desktop/spur_v7/AI-Interview-Prep-Platform-PrepWise/app/auth/sign-in/page.tsx
-import * as entry from '../../../../../app/auth/sign-in/page.js'
+// File: /Users/shazlimekrani/Desktop/spur_v7/AI-Interview-Prep-Platform-PrepWise/app/(root)/preset-interviews/page.tsx
+import * as entry from '../../../../../app/(root)/preset-interviews/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
-type TEntry = typeof import('../../../../../app/auth/sign-in/page.js')
+type TEntry = typeof import('../../../../../app/(root)/preset-interviews/page.js')
 
 type SegmentParams<T extends Object = any> = T extends Record<string, any>
   ? { [K in keyof T]: T[K] extends string ? string | string[] | undefined : never }

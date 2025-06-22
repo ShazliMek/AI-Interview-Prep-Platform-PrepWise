@@ -1,4 +1,4 @@
-// File: /Users/ahrazyousuf/Projects/IntervieYOU/AI-Interview-Prep-Platform-PrepWise/app/(root)/interview/[id]/page.tsx
+// File: /Users/shazlimekrani/Desktop/spur_v7/AI-Interview-Prep-Platform-PrepWise/app/(root)/interview/[id]/page.tsx
 import * as entry from '../../../../../../app/(root)/interview/[id]/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
