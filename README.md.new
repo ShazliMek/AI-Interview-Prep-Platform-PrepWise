@@ -1,0 +1,44 @@
+# PrepWise - AI Interview Preparation Platform
+
+PrepWise is an advanced AI-powered interview preparation platform that helps users practice, analyze, and improve their interviewing skills through realistic AI-driven mock interviews and detailed feedback.
+
+## Features
+
+- AI-driven mock interviews tailored to specific job roles and industries
+- Voice recording and analysis for comprehensive feedback
+- Detailed interview analysis with strengths and areas for improvement
+- Quantum-resistant encryption for user data privacy
+- Privacy-forward approach with automatic data expiration
+- Model Context Protocol (MCP) server for advanced AI model orchestration
+
+## Data Security & Privacy
+
+PrepWise takes a privacy-first approach to handling user data:
+
+### Voice Data Storage
+
+- All voice recordings are encrypted using hybrid encryption methods
+- Automatic deletion of voice recordings after 30 days (user-configurable)
+- User controls for consent and data management
+
+### Quantum-Resistant Security
+
+PrepWise implements quantum-resistant cryptographic approaches:
+- Hybrid encryption combining traditional and post-quantum algorithms
+- Key encapsulation mechanisms resistant to quantum computing attacks
+- Zero-knowledge proof mechanisms for certain verification processes
+
+## Advanced AI Capabilities
+
+### Model Context Protocol (MCP) Integration
+
+PrepWise includes a Model Context Protocol (MCP) server that enables:
+
+- Orchestrated model usage across different providers (OpenAI, Anthropic, Google)
+- Context-aware AI models that maintain interview state
+- Specialized tools for interview question generation and response analysis
+- Standardized API for extending AI capabilities
+
+To see the MCP capabilities in action, visit the `/mcp-demo` route in the application.
+
+## Getting Started

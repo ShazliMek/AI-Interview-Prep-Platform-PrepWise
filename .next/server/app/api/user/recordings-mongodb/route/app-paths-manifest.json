@@ -1,0 +1,3 @@
+{
+  "/api/user/recordings-mongodb/route": "app/api/user/recordings-mongodb/route.js"
+}

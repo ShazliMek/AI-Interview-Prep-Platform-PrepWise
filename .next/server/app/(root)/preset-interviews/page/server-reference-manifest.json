@@ -1,0 +1,71 @@
+{
+  "node": {
+    "00263f5e21e85f0ca380a5e51ff6da4b39f81c5d6e": {
+      "workers": {
+        "app/(root)/preset-interviews/page": {
+          "moduleId": "[project]/.next-internal/server/app/(root)/preset-interviews/page/actions.js { ACTIONS_MODULE0 => \"[project]/lib/actions/auth.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/(root)/preset-interviews/page": "action-browser"
+      }
+    },
+    "00b5f3e109327d28000c9bf356bb2be7a33dfa50ee": {
+      "workers": {
+        "app/(root)/preset-interviews/page": {
+          "moduleId": "[project]/.next-internal/server/app/(root)/preset-interviews/page/actions.js { ACTIONS_MODULE0 => \"[project]/lib/actions/auth.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/(root)/preset-interviews/page": "rsc"
+      }
+    },
+    "00ff6b4f56f1b102b7be818d18be36f95856aa4d63": {
+      "workers": {
+        "app/(root)/preset-interviews/page": {
+          "moduleId": "[project]/.next-internal/server/app/(root)/preset-interviews/page/actions.js { ACTIONS_MODULE0 => \"[project]/lib/actions/auth.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/(root)/preset-interviews/page": "rsc"
+      }
+    },
+    "403ecab76148372f632f479de439274c3d1a43a758": {
+      "workers": {
+        "app/(root)/preset-interviews/page": {
+          "moduleId": "[project]/.next-internal/server/app/(root)/preset-interviews/page/actions.js { ACTIONS_MODULE0 => \"[project]/lib/actions/auth.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/(root)/preset-interviews/page": "rsc"
+      }
+    },
+    "40b3b0ec3737f18a8c70016760fd96a1209ed4f61d": {
+      "workers": {
+        "app/(root)/preset-interviews/page": {
+          "moduleId": "[project]/.next-internal/server/app/(root)/preset-interviews/page/actions.js { ACTIONS_MODULE0 => \"[project]/lib/actions/auth.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/(root)/preset-interviews/page": "rsc"
+      }
+    },
+    "40cc20103ed515955b0d0ed96906ceeea87d72531b": {
+      "workers": {
+        "app/(root)/preset-interviews/page": {
+          "moduleId": "[project]/.next-internal/server/app/(root)/preset-interviews/page/actions.js { ACTIONS_MODULE0 => \"[project]/lib/actions/auth.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/(root)/preset-interviews/page": "rsc"
+      }
+    }
+  },
+  "edge": {}
+}

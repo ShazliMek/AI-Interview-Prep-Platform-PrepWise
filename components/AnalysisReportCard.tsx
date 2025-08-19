@@ -50,3 +50,4 @@ const AnalysisReportCard: React.FC<AnalysisReportCardProps> = ({ analysis, onEnd
 };
 
 export default AnalysisReportCard;
+

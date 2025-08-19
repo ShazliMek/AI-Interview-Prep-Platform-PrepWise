@@ -1,0 +1,12 @@
+{
+  "/(auth)/sign-in/page": "app/(auth)/sign-in/page.js",
+  "/(auth)/sign-up/page": "app/(auth)/sign-up/page.js",
+  "/(root)/interview-analysis/page": "app/(root)/interview-analysis/page.js",
+  "/(root)/interview/page": "app/(root)/interview/page.js",
+  "/(root)/page": "app/(root)/page.js",
+  "/api/get-completed-interviews/route": "app/api/get-completed-interviews/route.js",
+  "/api/save-completed-interview/route": "app/api/save-completed-interview/route.js",
+  "/api/user/current/route": "app/api/user/current/route.js",
+  "/api/vapi-debug/route": "app/api/vapi-debug/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js"
+}

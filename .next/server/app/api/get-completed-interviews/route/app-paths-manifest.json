@@ -1,0 +1,3 @@
+{
+  "/api/get-completed-interviews/route": "app/api/get-completed-interviews/route.js"
+}

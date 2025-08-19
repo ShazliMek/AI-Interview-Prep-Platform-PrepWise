@@ -9,6 +9,7 @@ PrepWise is an advanced AI-powered interview preparation platform that helps use
 - Detailed interview analysis with strengths and areas for improvement
 - Quantum-resistant encryption for user data privacy
 - Privacy-forward approach with automatic data expiration
+- Model Context Protocol (MCP) server for advanced AI model orchestration
 
 ## Data Security & Privacy
 
@@ -34,14 +35,28 @@ PrepWise implements quantum-resistant cryptographic approaches:
 Create a `.env.local` file in the root directory with the following environment variables:
 
 ```
+# Vapi Integration
 NEXT_PUBLIC_VAPI_WEB_TOKEN=your_vapi_web_token_here
 NEXT_PUBLIC_VAPI_ASSISTANT_ID=your_vapi_interview_assistant_id_here
 NEXT_PUBLIC_VAPI_GENERATE_ASSISTANT_ID=your_vapi_generate_assistant_id_here
+
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+
+# MongoDB Configuration
+MONGODB_URI=your_mongodb_connection_string
+MONGODB_DB_NAME=ai-interview-prep
+
+# Anthropic AI (for MCP server)
+ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
-These variables are required for Vapi voice AI integration. You can obtain these values by:
+These variables are required for various integrations. You can obtain the Vapi values by:
 1. Creating an account on [Vapi.ai](https://vapi.ai)
-2. Creating two assistants (one for interviews, one for generation)
+2. Creating assistants for interviews and question generation
 3. Getting your web token from the dashboard
 
 First, run the development server:
@@ -83,5 +98,24 @@ PrepWise leverages advanced AI technology for realistic interview experiences:
 - **Structured Workflow**: Customized interview workflows that follow realistic interview patterns
 - **Preset Company Interviews**: Pre-configured interviews for specific companies and roles
 - **Real-time Feedback**: AI-driven analysis during and after the interview
+- **Model Context Protocol (MCP)**: Standardized protocol for AI model orchestration
 
 For more information on the Vapi workflow integration, see [the documentation](./docs/vapi-workflow.md).
+
+## Advanced AI Capabilities
+
+### Model Context Protocol (MCP) Integration
+
+PrepWise includes a Model Context Protocol (MCP) server that enables:
+
+- Orchestrated model usage across different providers (OpenAI, Anthropic, Google)
+- Context-aware AI models that maintain interview state
+- Specialized tools for interview question generation and response analysis
+- Standardized API for extending AI capabilities
+
+To see the MCP capabilities in action, visit the `/mcp-demo` route in the application.
+
+The MCP server provides the following tools:
+- `interview.getQuestions`: Generate tailored interview questions
+- `interview.analyzeResponse`: Analyze candidate responses
+- `models.orchestrate`: Coordinate multiple AI models for complex tasks
